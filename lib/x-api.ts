@@ -1,11 +1,205 @@
-import {secrets,reserve,settle} from './store';
-import {queryFor,type Dataset,type Post,type Mode} from './domain';
-const fields='created_at,public_metrics,author_id,referenced_tweets,attachments,note_tweet';
-async function xGet(path:string,params:Record<string,string>,ceiling:number){if(!secrets().x)throw Error('X Bearer Token belum diisi di .env.');const ticket=await reserve('x',ceiling,'X: '+path);let res:Response;try{res=await fetch('https://api.x.com/2/'+path+'?'+new URLSearchParams(params),{headers:{Authorization:'Bearer '+secrets().x},signal:AbortSignal.timeout(45000)});}catch{throw Error('Koneksi X gagal. Reservasi biaya dipertahankan karena status tagihan belum pasti.');}if(!res.ok){const errorBody:any=await res.json().catch(()=>null);if([400,401,402,403,404,429].includes(res.status))await settle(ticket,0);const providerMessage=errorBody?.detail||errorBody?.title||errorBody?.errors?.map((x:any)=>x.message||x.detail).filter(Boolean).join('; ');throw Error(`X HTTP ${res.status}.${providerMessage?` ${String(providerMessage).slice(0,800)}`:res.status===429?' Rate limit; coba lagi nanti.':res.status===401?' Periksa Bearer Token.':res.status===403||res.status===402?' Periksa izin endpoint atau saldo X.':' Pengambilan gagal; periksa query dan akses.'}`)}const data=await res.json() as any;const count=Array.isArray(data.data)?data.data.length:data.data?1:0;const isUserLookup=path.startsWith('users/by/');const users=isUserLookup?count:(data.includes?.users?.length||0);const posts=isUserLookup?(data.includes?.tweets?.length||0):count+(data.includes?.tweets?.length||0);await settle(ticket,users*.01+posts*.005);return data}
-function normalize(raw:any,users:any[],media:any[],fallback='',context=false):Post{const user=users.find(u=>u.id===raw.author_id);const refs=raw.referenced_tweets||[];const kind=context?'context':refs.some((r:any)=>r.type==='retweeted')?'repost':refs.some((r:any)=>r.type==='replied_to')?'reply':refs.some((r:any)=>r.type==='quoted')?'quote':'original';const m=raw.public_metrics||{};return {id:raw.id,text:raw.note_tweet?.text||raw.text||'',author:user?.username||fallback||raw.author_id||'unknown',created_at:raw.created_at||new Date().toISOString(),kind,url:`https://x.com/${user?.username||fallback||'i'}/status/${raw.id}`,metrics:{likes:m.like_count??null,replies:m.reply_count??null,reposts:m.retweet_count??null,quotes:m.quote_count??null,views:m.impression_count??null},media:(media||[]).filter(m=>raw.attachments?.media_keys?.includes(m.media_key)&&m.type==='photo').map(m=>m.url).slice(0,4),references:refs.map((r:any)=>r.id)}}
-function unpack(r:any,fallback=''){const u=r.includes?.users||[],m=r.includes?.media||[];return [...(r.data||[]).map((p:any)=>normalize(p,u,m,fallback)),...(r.includes?.tweets||[]).map((p:any)=>normalize(p,u,m,'',true))]}
-export async function collectAccount(handle:string,postLimit=50):Promise<Dataset>{if(!/^[A-Za-z0-9_]{1,15}$/.test(handle))throw Error('Username X tidak valid.');const r=await xGet('users/by/username/'+handle,{'user.fields':'name,username,description,pinned_tweet_id'},.01);if(!r.data)throw Error('Akun tidak ditemukan.');const u=r.data;const posts:Post[]=[];const warnings:string[]=[];let token='';let originals=0;for(let page=0;page<Math.ceil(postLimit/100)&&originals<postLimit;page++){try{const q:Record<string,string>={max_results:String(Math.max(5,Math.min(100,postLimit-originals))),exclude:'replies,retweets','tweet.fields':fields};if(token)q.pagination_token=token;const p=await xGet('users/'+u.id+'/tweets',q,.55);posts.push(...unpack(p,handle).filter(p=>p.kind==='original'||p.kind==='quote').slice(0,postLimit-originals));originals=posts.length;token=p.meta?.next_token||'';if(!token)break;}catch(e){if(!posts.length)throw e;warnings.push(String((e as Error).message));break}}
-try{const activity=await xGet('users/'+u.id+'/tweets',{max_results:'50','tweet.fields':fields},.25);posts.push(...unpack(activity,handle).filter(p=>p.kind==='reply'||p.kind==='repost'));}catch(e){warnings.push('Replies/repost: '+(e as Error).message)}
-const ids=[...new Set([...posts.flatMap(p=>p.references),...(u.pinned_tweet_id?[u.pinned_tweet_id]:[])])].filter(id=>!posts.some(p=>p.id===id)).slice(0,50);if(ids.length)try{const context=await xGet('tweets',{ids:ids.join(','),'tweet.fields':fields,expansions:'author_id','user.fields':'username'},ids.length*.015);posts.push(...unpack(context).map(p=>({...p,kind:'context' as const})));}catch(e){warnings.push('Konteks/pinned: '+(e as Error).message)}
-if(originals<postLimit)warnings.push(`Hanya ${originals}/${postLimit} post original berhasil diambil; sampel tidak lengkap.`);warnings.push('Replies dan repost adalah sampel dari 50 aktivitas terbaru, bukan seluruh histori. Analisis awal berbasis teks; media yang tidak dibaca tidak boleh disimpulkan.');return {profile:{username:handle,name:u.name,bio:u.description||'',pinned_id:u.pinned_tweet_id||null},posts:[...new Map(posts.map(p=>[p.id,p])).values()],warnings,post_limit:postLimit}}
-export async function collectSearch(mode:Mode,niche:string,language:string,custom:string,postLimit=50):Promise<Dataset>{const query=custom.trim()||queryFor(mode,niche,language);if(query.length>450)throw Error('Query terlalu panjang (maks. 450 karakter).');const r=await xGet('tweets/search/recent',{query,max_results:String(postLimit),'tweet.fields':fields,expansions:'author_id','user.fields':'username,description'},1.5);return {profile:null,posts:unpack(r),warnings:[`Pencarian recent, maksimal ${postLimit} hasil per pengambilan. Bukan cakupan seluruh X.`,'Topik menunjukkan sampel saat ini; belum membuktikan tren meningkat.','Analisis awal berbasis teks; gambar tidak dianalisis otomatis.'],post_limit:postLimit}}
+import { secrets, reserve, settle } from './store';
+import { queryFor, type Dataset, type Post, type Mode } from './domain';
+const fields = 'created_at,public_metrics,author_id,referenced_tweets,attachments,note_tweet';
+async function xGet(path: string, params: Record<string, string>, ceiling: number) {
+  if (!secrets().x) throw Error('X Bearer Token belum diisi di .env.');
+  const ticket = await reserve('x', ceiling, 'X: ' + path);
+  let res: Response;
+  try {
+    res = await fetch('https://api.x.com/2/' + path + '?' + new URLSearchParams(params), {
+      headers: { Authorization: 'Bearer ' + secrets().x },
+      signal: AbortSignal.timeout(45000),
+    });
+  } catch {
+    throw Error(
+      'Koneksi X gagal. Reservasi biaya dipertahankan karena status tagihan belum pasti.',
+    );
+  }
+  if (!res.ok) {
+    const errorBody: any = await res.json().catch(() => null);
+    if ([400, 401, 402, 403, 404, 429].includes(res.status)) await settle(ticket, 0);
+    const providerMessage =
+      errorBody?.detail ||
+      errorBody?.title ||
+      errorBody?.errors
+        ?.map((x: any) => x.message || x.detail)
+        .filter(Boolean)
+        .join('; ');
+    throw Error(
+      `X HTTP ${res.status}.${providerMessage ? ` ${String(providerMessage).slice(0, 800)}` : res.status === 429 ? ' Rate limit; coba lagi nanti.' : res.status === 401 ? ' Periksa Bearer Token.' : res.status === 403 || res.status === 402 ? ' Periksa izin endpoint atau saldo X.' : ' Pengambilan gagal; periksa query dan akses.'}`,
+    );
+  }
+  const data = (await res.json()) as any;
+  const count = Array.isArray(data.data) ? data.data.length : data.data ? 1 : 0;
+  const isUserLookup = path.startsWith('users/by/');
+  const users = isUserLookup ? count : data.includes?.users?.length || 0;
+  const posts = isUserLookup
+    ? data.includes?.tweets?.length || 0
+    : count + (data.includes?.tweets?.length || 0);
+  await settle(ticket, users * 0.01 + posts * 0.005);
+  return data;
+}
+function normalize(raw: any, users: any[], media: any[], fallback = '', context = false): Post {
+  const user = users.find((u) => u.id === raw.author_id);
+  const refs = raw.referenced_tweets || [];
+  const kind = context
+    ? 'context'
+    : refs.some((r: any) => r.type === 'retweeted')
+      ? 'repost'
+      : refs.some((r: any) => r.type === 'replied_to')
+        ? 'reply'
+        : refs.some((r: any) => r.type === 'quoted')
+          ? 'quote'
+          : 'original';
+  const m = raw.public_metrics || {};
+  return {
+    id: raw.id,
+    text: raw.note_tweet?.text || raw.text || '',
+    author: user?.username || fallback || raw.author_id || 'unknown',
+    created_at: raw.created_at || new Date().toISOString(),
+    kind,
+    url: `https://x.com/${user?.username || fallback || 'i'}/status/${raw.id}`,
+    metrics: {
+      likes: m.like_count ?? null,
+      replies: m.reply_count ?? null,
+      reposts: m.retweet_count ?? null,
+      quotes: m.quote_count ?? null,
+      views: m.impression_count ?? null,
+    },
+    media: (media || [])
+      .filter((m) => raw.attachments?.media_keys?.includes(m.media_key) && m.type === 'photo')
+      .map((m) => m.url)
+      .slice(0, 4),
+    references: refs.map((r: any) => r.id),
+  };
+}
+function unpack(r: any, fallback = '') {
+  const u = r.includes?.users || [],
+    m = r.includes?.media || [];
+  return [
+    ...(r.data || []).map((p: any) => normalize(p, u, m, fallback)),
+    ...(r.includes?.tweets || []).map((p: any) => normalize(p, u, m, '', true)),
+  ];
+}
+export async function collectAccount(handle: string, postLimit = 50): Promise<Dataset> {
+  if (!/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw Error('Username X tidak valid.');
+  const r = await xGet(
+    'users/by/username/' + handle,
+    { 'user.fields': 'name,username,description,pinned_tweet_id' },
+    0.01,
+  );
+  if (!r.data) throw Error('Akun tidak ditemukan.');
+  const u = r.data;
+  const posts: Post[] = [];
+  const warnings: string[] = [];
+  let token = '';
+  let originals = 0;
+  for (let page = 0; page < Math.ceil(postLimit / 100) && originals < postLimit; page++) {
+    try {
+      const q: Record<string, string> = {
+        max_results: String(Math.max(5, Math.min(100, postLimit - originals))),
+        exclude: 'replies,retweets',
+        'tweet.fields': fields,
+      };
+      if (token) q.pagination_token = token;
+      const p = await xGet('users/' + u.id + '/tweets', q, 0.55);
+      posts.push(
+        ...unpack(p, handle)
+          .filter((p) => p.kind === 'original' || p.kind === 'quote')
+          .slice(0, postLimit - originals),
+      );
+      originals = posts.length;
+      token = p.meta?.next_token || '';
+      if (!token) break;
+    } catch (e) {
+      if (!posts.length) throw e;
+      warnings.push(String((e as Error).message));
+      break;
+    }
+  }
+  try {
+    const activity = await xGet(
+      'users/' + u.id + '/tweets',
+      { max_results: '50', 'tweet.fields': fields },
+      0.25,
+    );
+    posts.push(
+      ...unpack(activity, handle).filter((p) => p.kind === 'reply' || p.kind === 'repost'),
+    );
+  } catch (e) {
+    warnings.push('Replies/repost: ' + (e as Error).message);
+  }
+  const ids = [
+    ...new Set([
+      ...posts.flatMap((p) => p.references),
+      ...(u.pinned_tweet_id ? [u.pinned_tweet_id] : []),
+    ]),
+  ]
+    .filter((id) => !posts.some((p) => p.id === id))
+    .slice(0, 50);
+  if (ids.length)
+    try {
+      const context = await xGet(
+        'tweets',
+        {
+          ids: ids.join(','),
+          'tweet.fields': fields,
+          expansions: 'author_id',
+          'user.fields': 'username',
+        },
+        ids.length * 0.015,
+      );
+      posts.push(...unpack(context).map((p) => ({ ...p, kind: 'context' as const })));
+    } catch (e) {
+      warnings.push('Konteks/pinned: ' + (e as Error).message);
+    }
+  if (originals < postLimit)
+    warnings.push(
+      `Hanya ${originals}/${postLimit} post original berhasil diambil; sampel tidak lengkap.`,
+    );
+  warnings.push(
+    'Replies dan repost adalah sampel dari 50 aktivitas terbaru, bukan seluruh histori. Analisis awal berbasis teks; media yang tidak dibaca tidak boleh disimpulkan.',
+  );
+  return {
+    profile: {
+      username: handle,
+      name: u.name,
+      bio: u.description || '',
+      pinned_id: u.pinned_tweet_id || null,
+    },
+    posts: [...new Map(posts.map((p) => [p.id, p])).values()],
+    warnings,
+    post_limit: postLimit,
+  };
+}
+export async function collectSearch(
+  mode: Mode,
+  niche: string,
+  language: string,
+  custom: string,
+  postLimit = 50,
+): Promise<Dataset> {
+  const query = custom.trim() || queryFor(mode, niche, language);
+  if (query.length > 450) throw Error('Query terlalu panjang (maks. 450 karakter).');
+  const r = await xGet(
+    'tweets/search/recent',
+    {
+      query,
+      max_results: String(postLimit),
+      'tweet.fields': fields,
+      expansions: 'author_id',
+      'user.fields': 'username,description',
+    },
+    1.5,
+  );
+  return {
+    profile: null,
+    posts: unpack(r),
+    warnings: [
+      `Pencarian recent, maksimal ${postLimit} hasil per pengambilan. Bukan cakupan seluruh X.`,
+      'Topik menunjukkan sampel saat ini; belum membuktikan tren meningkat.',
+      'Analisis awal berbasis teks; gambar tidak dianalisis otomatis.',
+    ],
+    post_limit: postLimit,
+  };
+}

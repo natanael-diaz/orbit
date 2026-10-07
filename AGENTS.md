@@ -1,9 +1,11 @@
 # Orbit X Research Desk — Agent Context
 
 ## Purpose
+
 Orbit is a local, on-demand research dashboard for public X data. Its primary niche is pre-debut VTubers who may need stream assets. The app helps the user understand creator accounts, find buyer-intent posts, identify community connections, and draft replies. It is a research assistant, not an outreach bot.
 
 ## Product rules
+
 - The user chooses, edits, and sends every reply. Never add automatic posting, replying, following, or DM behavior.
 - Never infer inquiries, DMs, or orders from views, likes, or other engagement metrics. Those outcomes are entered manually.
 - Keep source URLs, dates, and evidence-based reasons visible wherever findings are shown.
@@ -13,6 +15,7 @@ Orbit is a local, on-demand research dashboard for public X data. Its primary ni
 - App usage figures are local estimates, not provider billing data. Orbit must not block requests with a hard-coded spend ceiling; let X/OpenAI return their own access, balance, or spend-limit errors.
 
 ## Research behavior
+
 - Account analysis defaults to 50 recent original and quote posts; the user can choose 5–100. Replies and reposts are analyzed separately from a sample of 50 recent activities.
 - Search modes are Topics, Reply Opportunities, Potential Leads, and Community Connections. Search uses recent X results and is not a complete history of X.
 - Content categories: Showcase, Sales, Personal, Education, Engagement, Community. Use the category definitions in `lib/ai.ts`.
@@ -23,6 +26,7 @@ Orbit is a local, on-demand research dashboard for public X data. Its primary ni
 - Reply drafts must fit the source post, sound natural, use the configured language, and avoid forcing a sales pitch.
 
 ## Technical map
+
 - UI: `app/page.tsx`; styles: `app/globals.css`.
 - API route and request validation: `app/api/desk/route.ts`.
 - Domain types, query construction, and metrics: `lib/domain.ts`.
@@ -35,7 +39,9 @@ Orbit is a local, on-demand research dashboard for public X data. Its primary ni
 The app uses React with Vinext and Cloudflare Workers/D1 for its local runtime. X requests are read-only. OpenAI Responses requests use `store:false`. Preserve current data and security boundaries when changing storage or API behavior.
 
 ## Verification
+
 Run relevant checks after code changes:
+
 - `pnpm run typecheck`
 - `pnpm run test`
 - `pnpm run build`

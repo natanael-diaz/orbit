@@ -1,4 +1,162 @@
-import {categories,type Dataset,type Analysis} from './domain';
-const texts=["Finished a moonlit starting-soon screen. Soft stars, hand-painted clouds. #VTuber", "Commission slots open: stream overlays from $80. Portfolio in bio.","Coffee, cats, and one very stubborn animation keyframe today.","Overlay tip: keep important text inside your safe area so it stays readable on mobile.","VTubers, what is your dream debut theme? Drop your moodboard!", "Huge congrats to the rigging team on their debut showcase. The expressions are lovely."];
-export function demo(){const posts:Dataset['posts']=Array.from({length:50},(_,i)=>({id:`demo-${i}`,text:texts[i%6],author:'sample_creator',created_at:new Date(Date.UTC(2026,9,6-i,8)).toISOString(),kind:i%9===0?'quote':'original',url:'',metrics:{likes:15+(i*17)%140,replies:2+i%12,reposts:i%8,quotes:i%3,views:600+i*61},media:[],references:[]}));posts.push({id:'demo-lead',text:'Preparing my November VTuber debut! Looking for a star-themed BRB and starting screen. Budget $120. Any artist recommendations?',author:'sample_debut',created_at:'2026-10-05T12:00:00.000Z',kind:'context',url:'',metrics:{likes:24,replies:6,reposts:2,quotes:0,views:890},media:[],references:[]},{id:'demo-reply',text:'The eye expressions look so expressive! How long did the rig take?',author:'sample_creator',created_at:'2026-10-05T13:00:00.000Z',kind:'reply',url:'',metrics:{likes:3,replies:1,reposts:0,quotes:0,views:100},media:[],references:['demo-community']},{id:'demo-community',text:'Sharing a Live2D rig showcase. Open to collaborating with overlay artists on debut packages.',author:'sample_rigger',created_at:'2026-10-04T12:00:00.000Z',kind:'context',url:'',metrics:{likes:89,replies:9,reposts:11,quotes:2,views:1800},media:[],references:[]},{id:'demo-repost',text:'Sharing a fellow creator’s Live2D showcase.',author:'sample_creator',created_at:'2026-10-04T14:00:00.000Z',kind:'repost',url:'',metrics:{likes:null,replies:null,reposts:null,quotes:null,views:null},media:[],references:['demo-community']});
-const analysis:Analysis={summary:'Contoh fiktif: creator stream assets dengan perpaduan showcase, obrolan ringan, dan dukungan komunitas.',positioning:'Stream assets bertema celestial untuk VTuber.',brand:'Visual yang konsisten dan bahasa hangat; kesimpulan contoh, bukan hasil riset akun nyata.',feel:'Personal — memakai cerita keseharian dan suara orang pertama.',reply_pattern:'Mengapresiasi karya rigging dan mengajukan pertanyaan spesifik.',repost_pattern:'Mendukung showcase creator lain.',evidence_ids:['demo-0','demo-2','demo-reply'],posts:posts.slice(0,50).map((p,i)=>({id:p.id,category:categories[i%6],tags:i%6===0?['portfolio']:[],tone:['Proud, warm','Direct, friendly','Casual','Helpful','Curious','Supportive'][i%6],reason:'Label contoh berdasarkan tujuan utama teks.'})),topics:[{name:'Persiapan debut',reason:'Contoh percakapan tentang aset yang diperlukan sebelum debut.',evidence_ids:['demo-lead']},{name:'Kolaborasi creator',reason:'Contoh peluang kolaborasi antara rigger dan overlay artist.',evidence_ids:['demo-community']}],candidates:[{post_id:'demo-lead',type:'lead',fit:'high',reason:'Contoh bukti eksplisit: mencari BRB dan starting screen; jadwal dan budget disebutkan.',need:'BRB + starting screen',timing:'November',budget:'$120',draft:'A star-themed debut sounds lovely! Do you already have a color palette in mind for the screens?'},{post_id:'demo-community',type:'connection',fit:'high',reason:'Rigger menyebut keterbukaan berkolaborasi dengan overlay artist.',need:null,timing:null,budget:null,draft:'The expressions have so much personality! What kind of debut themes do you enjoy working on most?'},{post_id:'demo-4',type:'reply',fit:'high',reason:'Pertanyaan terbuka yang relevan dengan niche dan mudah dibalas secara natural.',need:null,timing:null,budget:null,draft:'A little moonlit library would be such a cozy debut setting. Do you lean more cozy or high-energy for yours?'}]};return {payload:{post_limit:50,profile:{username:'sample_creator',name:'Sample Creator • fiktif',bio:'Stream assets artist · celestial & cozy visuals',pinned_id:'demo-0'},posts,warnings:['DATA DEMO FIKTIF. Tidak berasal dari X; tidak memiliki link sumber nyata.']},analysis};}
+import { categories, type Dataset, type Analysis } from './domain';
+const texts = [
+  'Finished a moonlit starting-soon screen. Soft stars, hand-painted clouds. #VTuber',
+  'Commission slots open: stream overlays from $80. Portfolio in bio.',
+  'Coffee, cats, and one very stubborn animation keyframe today.',
+  'Overlay tip: keep important text inside your safe area so it stays readable on mobile.',
+  'VTubers, what is your dream debut theme? Drop your moodboard!',
+  'Huge congrats to the rigging team on their debut showcase. The expressions are lovely.',
+];
+export function demo() {
+  const posts: Dataset['posts'] = Array.from({ length: 50 }, (_, i) => ({
+    id: `demo-${i}`,
+    text: texts[i % 6],
+    author: 'sample_creator',
+    created_at: new Date(Date.UTC(2026, 9, 6 - i, 8)).toISOString(),
+    kind: i % 9 === 0 ? 'quote' : 'original',
+    url: '',
+    metrics: {
+      likes: 15 + ((i * 17) % 140),
+      replies: 2 + (i % 12),
+      reposts: i % 8,
+      quotes: i % 3,
+      views: 600 + i * 61,
+    },
+    media: [],
+    references: [],
+  }));
+  posts.push(
+    {
+      id: 'demo-lead',
+      text: 'Preparing my November VTuber debut! Looking for a star-themed BRB and starting screen. Budget $120. Any artist recommendations?',
+      author: 'sample_debut',
+      created_at: '2026-10-05T12:00:00.000Z',
+      kind: 'context',
+      url: '',
+      metrics: { likes: 24, replies: 6, reposts: 2, quotes: 0, views: 890 },
+      media: [],
+      references: [],
+    },
+    {
+      id: 'demo-reply',
+      text: 'The eye expressions look so expressive! How long did the rig take?',
+      author: 'sample_creator',
+      created_at: '2026-10-05T13:00:00.000Z',
+      kind: 'reply',
+      url: '',
+      metrics: { likes: 3, replies: 1, reposts: 0, quotes: 0, views: 100 },
+      media: [],
+      references: ['demo-community'],
+    },
+    {
+      id: 'demo-community',
+      text: 'Sharing a Live2D rig showcase. Open to collaborating with overlay artists on debut packages.',
+      author: 'sample_rigger',
+      created_at: '2026-10-04T12:00:00.000Z',
+      kind: 'context',
+      url: '',
+      metrics: { likes: 89, replies: 9, reposts: 11, quotes: 2, views: 1800 },
+      media: [],
+      references: [],
+    },
+    {
+      id: 'demo-repost',
+      text: 'Sharing a fellow creator’s Live2D showcase.',
+      author: 'sample_creator',
+      created_at: '2026-10-04T14:00:00.000Z',
+      kind: 'repost',
+      url: '',
+      metrics: {
+        likes: null,
+        replies: null,
+        reposts: null,
+        quotes: null,
+        views: null,
+      },
+      media: [],
+      references: ['demo-community'],
+    },
+  );
+  const analysis: Analysis = {
+    summary:
+      'Contoh fiktif: creator stream assets dengan perpaduan showcase, obrolan ringan, dan dukungan komunitas.',
+    positioning: 'Stream assets bertema celestial untuk VTuber.',
+    brand:
+      'Visual yang konsisten dan bahasa hangat; kesimpulan contoh, bukan hasil riset akun nyata.',
+    feel: 'Personal — memakai cerita keseharian dan suara orang pertama.',
+    reply_pattern: 'Mengapresiasi karya rigging dan mengajukan pertanyaan spesifik.',
+    repost_pattern: 'Mendukung showcase creator lain.',
+    evidence_ids: ['demo-0', 'demo-2', 'demo-reply'],
+    posts: posts.slice(0, 50).map((p, i) => ({
+      id: p.id,
+      category: categories[i % 6],
+      tags: i % 6 === 0 ? ['portfolio'] : [],
+      tone: ['Proud, warm', 'Direct, friendly', 'Casual', 'Helpful', 'Curious', 'Supportive'][
+        i % 6
+      ],
+      reason: 'Label contoh berdasarkan tujuan utama teks.',
+    })),
+    topics: [
+      {
+        name: 'Persiapan debut',
+        reason: 'Contoh percakapan tentang aset yang diperlukan sebelum debut.',
+        evidence_ids: ['demo-lead'],
+      },
+      {
+        name: 'Kolaborasi creator',
+        reason: 'Contoh peluang kolaborasi antara rigger dan overlay artist.',
+        evidence_ids: ['demo-community'],
+      },
+    ],
+    candidates: [
+      {
+        post_id: 'demo-lead',
+        type: 'lead',
+        fit: 'high',
+        reason:
+          'Contoh bukti eksplisit: mencari BRB dan starting screen; jadwal dan budget disebutkan.',
+        need: 'BRB + starting screen',
+        timing: 'November',
+        budget: '$120',
+        draft:
+          'A star-themed debut sounds lovely! Do you already have a color palette in mind for the screens?',
+      },
+      {
+        post_id: 'demo-community',
+        type: 'connection',
+        fit: 'high',
+        reason: 'Rigger menyebut keterbukaan berkolaborasi dengan overlay artist.',
+        need: null,
+        timing: null,
+        budget: null,
+        draft:
+          'The expressions have so much personality! What kind of debut themes do you enjoy working on most?',
+      },
+      {
+        post_id: 'demo-4',
+        type: 'reply',
+        fit: 'high',
+        reason: 'Pertanyaan terbuka yang relevan dengan niche dan mudah dibalas secara natural.',
+        need: null,
+        timing: null,
+        budget: null,
+        draft:
+          'A little moonlit library would be such a cozy debut setting. Do you lean more cozy or high-energy for yours?',
+      },
+    ],
+  };
+  return {
+    payload: {
+      post_limit: 50,
+      profile: {
+        username: 'sample_creator',
+        name: 'Sample Creator • fiktif',
+        bio: 'Stream assets artist · celestial & cozy visuals',
+        pinned_id: 'demo-0',
+      },
+      posts,
+      warnings: ['DATA DEMO FIKTIF. Tidak berasal dari X; tidak memiliki link sumber nyata.'],
+    },
+    analysis,
+  };
+}

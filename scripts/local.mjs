@@ -1,12 +1,29 @@
-import {readFileSync,writeFileSync,existsSync,mkdirSync,chmodSync} from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
 import path from 'node:path';
-import {spawnSync} from 'node:child_process';
-const localConfig=path.resolve('.wrangler/config');
-mkdirSync(localConfig,{recursive:true});
+import { spawnSync } from 'node:child_process';
+const localConfig = path.resolve('.wrangler/config');
+mkdirSync(localConfig, { recursive: true });
 process.env.XDG_CONFIG_HOME ||= localConfig;
-if(!existsSync('.env'))writeFileSync('.env',readFileSync('.env.example'),{mode:0o600});
-writeFileSync('.dev.vars',readFileSync('.env'),{mode:0o600});
-chmodSync('.dev.vars',0o600);
-const run=(args)=>{const p=spawnSync(process.execPath,args,{stdio:'inherit',env:process.env});if(p.status!==0)process.exit(p.status||1)};
-run(['node_modules/wrangler/bin/wrangler.js','d1','migrations','apply','DB','--local','--config','wrangler.local.json','--persist-to','.wrangler/state']);
-run(['node_modules/vinext/dist/cli.js','dev','--hostname','127.0.0.1','--port','5173']);
+if (!existsSync('.env')) writeFileSync('.env', readFileSync('.env.example'), { mode: 0o600 });
+writeFileSync('.dev.vars', readFileSync('.env'), { mode: 0o600 });
+chmodSync('.dev.vars', 0o600);
+const run = (args) => {
+  const p = spawnSync(process.execPath, args, {
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (p.status !== 0) process.exit(p.status || 1);
+};
+run([
+  'node_modules/wrangler/bin/wrangler.js',
+  'd1',
+  'migrations',
+  'apply',
+  'DB',
+  '--local',
+  '--config',
+  'wrangler.local.json',
+  '--persist-to',
+  '.wrangler/state',
+]);
+run(['node_modules/vinext/dist/cli.js', 'dev', '--hostname', '127.0.0.1', '--port', '5173']);

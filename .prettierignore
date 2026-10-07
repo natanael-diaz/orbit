@@ -1,0 +1,12 @@
+node_modules
+.next
+.vinext
+dist
+.wrangler
+.sites-runtime
+coverage
+.env
+.dev.vars
+pnpm-lock.yaml
+vendor
+components/ui

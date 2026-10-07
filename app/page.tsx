@@ -1,39 +1,1301 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
-import {Orbit,UserRound,MessagesSquare,ChartNoAxesCombined,Users,Target,NotebookPen,Settings,Search,Download,Upload,Plus,ExternalLink,Copy,Check,Trash2,Sparkles,Pin,Wallet,LoaderCircle} from 'lucide-react';
-import {categories,stats,engagement,sourceUrl,queryFor,type Run,type Post,type Mode} from '../lib/domain';
-type View=Mode|'outcomes'|'settings';
-const nav=[['account','Analisis akun',UserRound],['topics','Topik percakapan',ChartNoAxesCombined],['replies','Peluang reply',MessagesSquare],['leads','Potential leads',Target],['connections','Community',Users],['outcomes','Inquiry & order',NotebookPen],['settings','Koneksi & budget',Settings]] as const;
-const money=(v:number)=>'$'+v.toFixed(3);const fmt=(d?:string)=>d?new Date(d).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}):'—';
-const num=(n:number|null|undefined)=>n==null?'—':n.toLocaleString('id-ID',{maximumFractionDigits:1});
-function Link({post}:{post?:Post}){if(!post)return null;const url=sourceUrl(post);return url?<a className="source" href={url} target="_blank" rel="noreferrer">Lihat di X <ExternalLink size={13}/></a>:<span className="muted small">Sumber tidak tersedia</span>}
-function download(data:unknown,name:string){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}
-const emptyOutcome={account:'',type:'Inquiry',date:new Date().toISOString().slice(0,10),source:'',attribution:'Tidak diketahui',amount:'',currency:'USD',notes:''};
-export default function Page(){const [view,setView]=useState<View>('account');const [state,setState]=useState<any>({runs:[],outcomes:[],usage:[],configured:{x:false,ai:false}});const [selected,setSelected]=useState('');const [busy,setBusy]=useState('');const [message,setMessage]=useState('');const [error,setError]=useState('');const [handle,setHandle]=useState('');const [niche,setNiche]=useState('VTuber');const [language,setLanguage]=useState('en');const [query,setQuery]=useState('');const [postLimit,setPostLimit]=useState(50);const [kind,setKind]=useState('original');const [category,setCategory]=useState('All');const [filter,setFilter]=useState('');const [outcome,setOutcome]=useState<any>(emptyOutcome);const [editId,setEditId]=useState('');const [showForm,setShowForm]=useState(false);const [tab,setTab]=useState('posts');
-async function load(){const res=await fetch('/api/desk');const data:any=await res.json();if(!res.ok)throw Error(data.error);setState(data);setSelected(old=>data.runs.some((r:Run)=>r.id===old)?old:data.runs[0]?.id||'');}
-useEffect(()=>{load().catch(e=>setError(e.message))},[]);
-async function act(action:string,data:any={}){setBusy(action);setError('');setMessage('');try{const r=await fetch('/api/desk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const j:any=await r.json();if(!r.ok)throw Error(j.error);await load();if(j.id)setSelected(j.id);setMessage(action==='collect'?'Data tersimpan. Pilih Analisis AI untuk menilai konten.':action==='analyze'?'Analisis tersimpan.':'Tersimpan.');return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy('')}}
-const runs:Run[]=state.runs;const run=runs.find(r=>r.id===selected);const a=run?.analysis;const posts=run?.payload.posts||[];const postCount=run?.payload.post_limit||50;const stat=useMemo(()=>stats(posts,postCount),[posts,postCount]);const xSpent=Number(state.usage.find((u:any)=>u.provider==='x')?.total||0);const aiSpent=Number(state.usage.find((u:any)=>u.provider==='ai')?.total||0);
-const classified=new Map(a?.posts.map(p=>[p.id,p]));const visible=posts.filter(p=>(kind==='all'||(kind==='original'?['original','quote'].includes(p.kind):p.kind===kind))&&(category==='All'||classified.get(p.id)?.category===category)&&`${p.text} ${p.author}`.toLowerCase().includes(filter.toLowerCase()));
-const candidateType=view==='leads'?'lead':view==='connections'?'connection':'reply';const candidates=a?.candidates.filter(c=>c.type===candidateType)||[];
-async function importFile(file?:File){if(!file)return;try{const raw=JSON.parse(await file.text());await act('import',{mode:view==='settings'||view==='outcomes'?'account':view,target:file.name,data:raw.payload||raw})}catch{setError('File harus JSON dengan format dataset. Unduh contoh di Koneksi & budget.')}}
-const title=nav.find(n=>n[0]===view)?.[1];
-return <div className="shell"><aside className="sidebar"><div className="brand"><Orbit size={31}/><span>orbit<span className="brand-dot">.</span></span></div><p className="workspace-label">NATANAEL'S WORKSPACE</p><nav>{nav.map(([id,label,Icon])=><button key={id} onClick={()=>{setView(id);setQuery('');setError('');if(id!=='account')setPostLimit(old=>old<10?10:old)}} className={view===id?'active':''}><Icon size={19}/>{label}{id==='leads'&&a&&<span className="nav-count">{a.candidates.filter(c=>c.type==='lead').length}</span>}</button>)}</nav><div className="side-note"><span className="tiny-label">RESEARCH FOCUS</span><strong>Pre-debut VTuber</strong><p>Stream assets · Community first</p></div><div className="side-user"><span className="avatar">N</span><div><strong>Natanael</strong><small>Personal research desk</small></div></div></aside>
-<div className="workspace"><header className="topbar"><span>Workspace <span className="slash">/</span> <strong>{title}</strong></span><div className="top-actions"><span className="local-pill">On demand</span><button className="icon-button" title="Koneksi dan budget" onClick={()=>setView('settings')}><Settings size={19}/></button></div></header>
-<main><div className="page-heading"><div><span className="eyebrow">X RESEARCH DESK</span><h1>{title}</h1><p>{view==='account'?'Pahami kontennya. Temukan pola komunikasinya.':view==='topics'?'Topik yang muncul dalam sampel percakapanmu.':view==='replies'?'Mulai percakapan yang relevan, dengan suaramu sendiri.':view==='leads'?'Cari bukti kebutuhan, bukan sekadar profil yang cocok.':view==='connections'?'Temukan sesama creator untuk saling mendukung.':view==='outcomes'?'Catat hasil nyata dan dari mana percakapan dimulai.':'Siapkan koneksi. Kendalikan pengeluaran.'}</p></div><div className="row"><button className="secondary" disabled={!run} onClick={()=>run&&download(run,`orbit-${run.target.replace(/[^\w-]/g,'_')}.json`)}><Download size={16}/>Ekspor</button><label className="secondary import-label"><Upload size={16}/>Impor<input type="file" accept="application/json,.json" onChange={e=>{importFile(e.target.files?.[0]);e.target.value=''}}/></label></div></div>
-{error&&<div role="alert" className="notice error">{error}</div>}{message&&<div role="status" className="notice success">{message}</div>}{busy&&<div role="status" className="notice"><LoaderCircle className="spin" size={17}/> {busy==='analyze'?'AI sedang membaca sampel. Bisa memerlukan 1–2 menit…':'Memproses…'}</div>}
-{view!=='settings'&&view!=='outcomes'&&<><section className="research-bar"><div className="field"><label>{view==='account'?'Username akun':'Niche / keyword'}</label><div className="input-icon"><Search size={17}/><input value={view==='account'?handle:niche} onChange={e=>view==='account'?setHandle(e.target.value):setNiche(e.target.value)} placeholder={view==='account'?'@username':'VTuber'}/></div></div><div className="field compact"><label>Bahasa reply</label><select value={language} onChange={e=>setLanguage(e.target.value)}><option value="en">English</option><option value="id">Indonesia</option><option value="ja">Japanese</option></select></div><div className="field compact sample-count"><label htmlFor="post-limit">Jumlah post</label><input id="post-limit" type="number" min={view==='account'?5:10} max="100" step="1" value={postLimit} onChange={e=>setPostLimit(Number(e.target.value))}/><small>{view==='account'?'original + quote; replies/repost tetap 50 · maks 100':'hasil recent · maks 100'}</small></div><button className="primary" disabled={!!busy||!state.configured.x||!Number.isInteger(postLimit)||postLimit<(view==='account'?5:10)||postLimit>100||(view==='account'&&!handle.trim())} onClick={()=>act('collect',{mode:view,target:handle,niche,language,query,postLimit})}><Search size={17}/>Ambil data X</button></section>{view!=='account'&&<details className="query-box"><summary>Edit query pencarian X</summary><input aria-label="Query pencarian X" value={query} placeholder={queryFor(view as Mode,niche,language)} onChange={e=>setQuery(e.target.value)}/><small>Default mencari post recent; bahasa bisa diubah. Edit query untuk kebutuhan lebih spesifik.</small></details>}
-<div className="context-row"><div className="row"><label htmlFor="run-select">Riset tersimpan</label><select id="run-select" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Pilih riset</option>{runs.map(r=><option key={r.id} value={r.id}>{r.source==='demo'?'[DEMO] ':''}{r.target} · {r.mode} · {fmt(r.created)}</option>)}</select></div><span className="muted small">{run?'Diambil '+fmt(run.created):'Belum ada pengambilan'}</span></div>
-{!run?<section className="empty card"><Orbit size={44}/><h2>Mulai dari satu akun.</h2><p>Hubungkan API untuk mengambil data, atau coba data fiktif untuk menjelajahi seluruh alur.</p><button className="primary" disabled={!!busy} onClick={()=>act('demo')}>Coba data demo</button><button className="text-button" onClick={()=>setView('settings')}>Siapkan API & lihat format impor</button></section>:<>{run.source==='demo'&&<div className="demo-strip">DEMO FIKTIF <span>Contoh untuk mencoba dashboard. Bukan akun, metrik, atau leads nyata.</span></div>}<div className="analysis-actions"><span className="small muted">{run.payload.profile?'@'+run.payload.profile.username:run.target} · {posts.length} record · {a?'Analisis tersedia':'Belum dianalisis'}</span><div className="row"><button className="secondary" disabled={!!busy||!state.configured.ai||run.source==='demo'||!!a} onClick={()=>act('analyze',{id:run.id,language,niche})}><Sparkles size={15}/>{a?'Analisis tersimpan':'Analisis AI'}</button><button className="icon-button" title="Hapus riset ini" disabled={!!busy} onClick={()=>{if(confirm('Hapus riset ini? Catatan inquiry dan biaya tetap disimpan.'))act('deleteRun',{id:run.id})}}><Trash2 size={16}/></button></div></div>
-{view==='account'&&<><div className="stats-grid"><Metric label="POST ORIGINAL + QUOTE" value={`${stat.count} / ${postCount}`} note={stat.count<postCount?'Sampel belum mencapai target':'Sampel analisis utama'}/><Metric label="POSTING FREQUENCY" value={stat.frequency===null?'—':num(stat.frequency)} note={`post / minggu · ${fmt(stat.from)}–${fmt(stat.to)}`}/><Metric label="AVERAGE ENGAGEMENT" value={num(stat.mean)} note={`${stat.metricCount} post bermetrik lengkap`}/><Metric label="HIGHEST ENGAGEMENT" value={num(stat.best?engagement(stat.best):null)} note="likes + replies + reposts + quotes"/></div><div className="two-column"><section className="card profile-card"><div className="section-head"><h2>Profil & positioning</h2><span className="badge">{run.source==='demo'?'Contoh':'Interpretasi AI'}</span></div><div className="profile-line"><span className="profile-avatar">{(run.payload.profile?.name||'?').slice(0,1)}</span><div><h3>{run.payload.profile?.name||'Profil tidak tersedia'}</h3><p>{run.payload.profile?.bio||'Bio belum diambil.'}</p></div></div><dl><dt>Positioning</dt><dd>{a?.positioning||'Jalankan analisis AI untuk membaca positioning.'}</dd><dt>Kesan akun</dt><dd>{a?.feel||'Belum dianalisis'}</dd><dt>Personal brand</dt><dd>{a?.brand||'Belum dianalisis'}</dd></dl><div className="evidence">{a?.evidence_ids.map(id=><Link key={id} post={posts.find(p=>p.id===id)}/>)}</div></section><section className="card"><div className="section-head"><h2>Content mix</h2><span className="small muted">Kategori utama</span></div><div className="mix">{categories.map((c,i)=>{const count=a?.posts.filter(p=>p.category===c&&posts.some(x=>x.id===p.id&&['original','quote'].includes(x.kind))).length||0;return <div key={c} className="mix-line"><span>{c}</span><div className="track"><div style={{width:`${stat.count?count/stat.count*100:0}%`,background:['#e97051','#176c63','#7388a0','#589ea4','#b0aa67','#805e94'][i]}}/></div><strong>{count}</strong></div>})}</div>{!a&&<p className="muted small">Kategori tersedia setelah analisis AI.</p>}<p className="footnote">Satu kategori utama per post. Tag tambahan muncul di tabel.</p></section></div><div className="tabs"><button className={tab==='posts'?'chosen':''} onClick={()=>setTab('posts')}>Post & tone</button><button className={tab==='behavior'?'chosen':''} onClick={()=>setTab('behavior')}>Replies & repost</button><button className={tab==='highlights'?'chosen':''} onClick={()=>setTab('highlights')}>Pinned & highlights</button></div>
-{tab==='posts'?<section className="card table-card"><div className="table-tools"><div className="row"><select aria-label="Jenis post" value={kind} onChange={e=>setKind(e.target.value)}><option value="original">Original + quote</option><option value="reply">Replies</option><option value="repost">Reposts</option><option value="context">Konteks</option><option value="all">Semua</option></select><select aria-label="Kategori" value={category} onChange={e=>setCategory(e.target.value)}><option>All</option>{categories.map(c=><option key={c}>{c}</option>)}</select></div><input aria-label="Cari post" placeholder="Cari teks atau akun…" value={filter} onChange={e=>setFilter(e.target.value)}/></div><div className="table-scroll"><table><thead><tr><th>POST / TANGGAL</th><th>KATEGORI & TONE</th><th>LIKES</th><th>REPLIES</th><th>REPOSTS</th><th>QUOTES</th><th>VIEWS</th></tr></thead><tbody>{visible.map(p=>{const c=classified.get(p.id);return <tr key={p.id}><td className="post-cell"><p>{p.text}</p><div className="row small muted"><span>@{p.author} · {fmt(p.created_at)}</span><Link post={p}/></div></td><td className="tone-cell"><span className={'category category-'+(c?.category||'none')}>{c?.category||'Belum dianalisis'}</span><p>{c?.tone||'—'}</p>{c?.tags.length?<small>{c.tags.join(' · ')}</small>:null}<details><summary>Alasan</summary>{c?.reason||'Belum tersedia'}</details></td><td>{num(p.metrics.likes)}</td><td>{num(p.metrics.replies)}</td><td>{num(p.metrics.reposts)}</td><td>{num(p.metrics.quotes)}</td><td>{num(p.metrics.views)}</td></tr>})}</tbody></table></div>{!visible.length&&<p className="empty-small">Tidak ada post yang cocok.</p>}</section>:tab==='behavior'?<div className="two-column"><section className="card"><h2>Replies · {posts.filter(p=>p.kind==='reply').length}</h2><p>{a?.reply_pattern||'Belum dianalisis.'}</p>{posts.filter(p=>p.kind==='reply').map(p=><PostCard key={p.id} post={p}/>)}</section><section className="card"><h2>Reposts · {posts.filter(p=>p.kind==='repost').length}</h2><p>{a?.repost_pattern||'Belum dianalisis.'}</p>{posts.filter(p=>p.kind==='repost').map(p=><PostCard key={p.id} post={p}/>)}</section></div>:<div className="highlight-grid"><section className="card"><h2><Pin size={17}/> Pinned post</h2>{posts.find(p=>p.id===run.payload.profile?.pinned_id)?<PostCard post={posts.find(p=>p.id===run.payload.profile?.pinned_id)!}/>:<p className="muted">Tidak ada pinned post yang tersedia dalam data.</p>}</section><section className="card"><h2>Interaksi terbanyak</h2>{stat.best&&<PostCard post={stat.best}/>}</section><section className="card"><h2>Rasio terhadap views</h2>{stat.rateBest?<><strong className="big-number">{num(engagement(stat.rateBest)!/stat.rateBest.metrics.views!*100)}%</strong><PostCard post={stat.rateBest}/></>:<p>Views tidak tersedia.</p>}</section></div>}</>}
-{view==='topics'&&<><div className="notice">Topik dominan dalam sampel — belum menyatakan tren meningkat. Gunakan periode dan query yang sebanding untuk evaluasi lanjutan.</div><div className="topic-grid">{a?.topics.map((t,i)=><section key={i} className="card topic-card"><span className="topic-number">{String(i+1).padStart(2,'0')}</span><h2>{t.name}</h2><p>{t.reason}</p><span className="badge">{t.evidence_ids.length} post bukti</span>{t.evidence_ids.map(id=><PostCard key={id} post={posts.find(p=>p.id===id)}/>)}</section>)}</div>{!a?.topics.length&&<div className="empty card">Belum ada topik. Ambil sampel lalu jalankan analisis AI.</div>}</>}
-{['leads','connections','replies'].includes(view)&&<><div className="list-heading"><h2>{candidates.length} kandidat dalam sampel</h2><span className="muted small">Penilaian AI perlu ditinjau • Tidak ada pengiriman otomatis</span></div><div className="candidate-list">{candidates.map((c,i)=><Candidate key={run.id+c.post_id+c.type} candidate={c} post={posts.find(p=>p.id===c.post_id)} onSave={draft=>act('draft',{id:run.id,post_id:c.post_id,type:c.type,draft})} onRecord={()=>{setOutcome({...emptyOutcome,account:posts.find(p=>p.id===c.post_id)?.author||'',source:sourceUrl(posts.find(p=>p.id===c.post_id)!)});setShowForm(true);setView('outcomes')}}/>)}</div>{!candidates.length&&<div className="empty card">Belum ada kandidat dengan bukti yang cukup. Jalankan pencarian dan analisis untuk bagian ini.</div>}</>}
-<details className="method"><summary>Catatan data & metode</summary><ul>{run.payload.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul><p>Frequency = (jumlah post − 1) ÷ selisih hari antar post terlama/terbaru × 7. Sampel bukan kalender mingguan lengkap. Engagement = likes + replies + reposts + quotes; data kosong tidak dianggap nol. Kategori, brand, dan penilaian kandidat adalah interpretasi. Inquiry, DM, order hanya berasal dari catatan manual.</p></details></>}</>}
-{view==='outcomes'&&<><div className="stats-grid"><Metric label="INQUIRY TERCATAT" value={String(state.outcomes.filter((o:any)=>o.type==='Inquiry').length)} note="Input manual"/><Metric label="DM TERCATAT" value={String(state.outcomes.filter((o:any)=>o.type==='DM').length)} note="Input manual"/><Metric label="ORDER TERCATAT" value={String(state.outcomes.filter((o:any)=>o.type==='Order').length)} note="Input manual"/><Metric label="ATRIBUSI DIKONFIRMASI" value={String(state.outcomes.filter((o:any)=>o.attribution==='Dikonfirmasi client').length)} note="Sumber dikonfirmasi client"/></div><div className="list-heading"><p>Angka ini tidak diturunkan dari views atau likes.</p><button className="primary" onClick={()=>{setEditId('');setOutcome(emptyOutcome);setShowForm(true)}}><Plus size={16}/>Tambah catatan</button></div>{showForm&&<form className="card outcome-form" onSubmit={async e=>{e.preventDefault();if(await act('outcome',{id:editId||undefined,data:{...outcome,amount:outcome.amount===''?null:Number(outcome.amount)}})){setShowForm(false);setEditId('');setOutcome(emptyOutcome)}}}><h2>{editId?'Edit':'Tambah'} catatan hasil</h2><div className="form-grid">{[['account','Akun'],['date','Tanggal'],['source','Link sumber (opsional)'],['amount','Nilai order (opsional)']].map(([key,label])=><label key={key}>{label}<input required={key==='account'||key==='date'} type={key==='date'?'date':key==='amount'?'number':'text'} min={key==='amount'?'0':undefined} step={key==='amount'?'0.01':undefined} value={outcome[key]} onChange={e=>setOutcome({...outcome,[key]:e.target.value})}/></label>)}<label>Jenis<select value={outcome.type} onChange={e=>setOutcome({...outcome,type:e.target.value})}>{['Inquiry','DM','Order'].map(x=><option key={x}>{x}</option>)}</select></label><label>Atribusi<select value={outcome.attribution} onChange={e=>setOutcome({...outcome,attribution:e.target.value})}>{['Tidak diketahui','Catatan pribadi','Dikonfirmasi client'].map(x=><option key={x}>{x}</option>)}</select></label><label>Mata uang<select value={outcome.currency} onChange={e=>setOutcome({...outcome,currency:e.target.value})}><option>USD</option><option>IDR</option></select></label></div><label>Catatan<textarea value={outcome.notes} onChange={e=>setOutcome({...outcome,notes:e.target.value})}/></label><div className="row"><button disabled={!!busy} className="primary">Simpan catatan</button><button type="button" className="secondary" onClick={()=>setShowForm(false)}>Batal</button></div></form>}<section className="card table-card"><div className="table-scroll"><table><thead><tr><th>TANGGAL</th><th>AKUN / JENIS</th><th>SUMBER & ATRIBUSI</th><th>NILAI</th><th>CATATAN</th><th>AKSI</th></tr></thead><tbody>{state.outcomes.map((o:any)=><tr key={o.id}><td>{fmt(o.date)}</td><td><strong>{o.account}</strong><p><span className="badge">{o.type}</span></p></td><td>{/^https:\/\/(x\.com|twitter\.com)\//.test(o.source)?<a href={o.source} target="_blank" rel="noreferrer">Link sumber</a>:<span>{o.source||'Tidak diketahui'}</span>}<p className="small muted">{o.attribution}</p></td><td>{o.amount===null?'—':o.currency+' '+num(o.amount)}</td><td>{o.notes||'—'}</td><td><div className="row"><button className="text-button" onClick={()=>{setOutcome({...o,amount:o.amount??''});setEditId(o.id);setShowForm(true)}}>Edit</button><button title="Hapus catatan" className="icon-button" onClick={()=>{if(confirm('Hapus catatan ini?'))act('deleteOutcome',{id:o.id})}}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div>{!state.outcomes.length&&<div className="empty-small">Belum ada inquiry, DM, atau order yang dicatat.</div>}</section><button className="text-button" onClick={()=>download(state.outcomes,'orbit-outcomes.json')}>Ekspor catatan hasil</button></>}
-{view==='settings'&&<><div className="two-column"><section className="card"><div className="section-head"><h2><Wallet size={18}/> Penggunaan API</h2><span className="badge">Tanpa batas lokal</span></div><Budget label="X API" spent={xSpent}/><Budget label="OpenAI API" spent={aiSpent}/><p className="footnote">Estimasi pemakaian Orbit secara kumulatif; aplikasi tidak menghentikan request karena batas lokal. Jika saldo, akses, atau spending limit provider tidak mencukupi, API akan menolak request. Penggunaan di aplikasi lain, pajak, dan kurs tidak termasuk. Request dengan status tidak pasti tetap dicadangkan. Cocokkan dengan billing provider.</p></section><section className="card"><h2>Status koneksi</h2><div className="connection"><strong>X API</strong><span className="badge">{state.configured.x?'Token terisi • belum diverifikasi':'Belum diisi'}</span></div><div className="connection"><strong>OpenAI · GPT-5.4 mini</strong><span className="badge">{state.configured.ai?'Key terisi • belum diverifikasi':'Belum diisi'}</span></div><p className="muted">Key disimpan di file .env lokal, tidak dikirim ke browser atau disimpan dalam ekspor.</p><p><a target="_blank" rel="noreferrer" href="https://console.x.com/">X Developer Console</a> · <a target="_blank" rel="noreferrer" href="https://platform.openai.com/settings/organization/billing/overview">OpenAI Billing</a> · <a target="_blank" rel="noreferrer" href="https://platform.openai.com/api-keys">OpenAI API keys</a></p></section></div><section className="card setup"><h2>Jalankan di laptopmu</h2><ol><li>Salin <code>.env.example</code> menjadi <code>.env</code>.</li><li>Isi <code>X_BEARER_TOKEN</code> dari app di Developer Console X dan <code>OPENAI_API_KEY</code> dari OpenAI.</li><li>Jalankan <code>npm run local</code>, lalu buka alamat lokal yang ditampilkan.</li></ol><p>Data disimpan di SQLite lokal melalui runtime Wrangler. Simpan folder .wrangler/state untuk mempertahankan riset dan catatanmu. Tidak ada fitur posting, DM, atau reply otomatis.</p></section><section className="card"><h2>Coba sebelum mengisi key</h2><p>Demo memakai 50 post original fiktif, contoh replies/repost, dan kandidat. Impor memakai format JSON yang sama; data impor tetap ditandai sebagai impor.</p><div className="row"><button className="primary" disabled={!!busy} onClick={async()=>{if(await act('demo'))setView('account')}}>Muat demo fiktif</button><button className="secondary" onClick={()=>download({profile:{username:'your_handle',name:'Creator',bio:'',pinned_id:null},posts:[{id:'REAL_POST_ID',text:'Isi teks post',author:'your_handle',created_at:new Date().toISOString(),kind:'original',url:'',metrics:{likes:null,replies:null,reposts:null,quotes:null,views:null},media:[],references:[]}],warnings:['Data diimpor manual.']},'orbit-import-template.json')}>Unduh template JSON</button></div></section></>}
-<footer><span>orbit. <span className="muted">Research with context.</span></span><span>Data → bukti → percakapan</span></footer></main></div></div>}
-function Metric({label,value,note}:{label:string;value:string;note:string}){return <section className="metric"><span className="tiny-label">{label}</span><strong>{value}</strong><small>{note}</small></section>}
-function Budget({label,spent}:{label:string;spent:number}){return <div className="budget"><div className="row"><strong>{label}</strong><span>{money(spent)} · estimasi tercatat</span></div></div>}
-function PostCard({post}:{post?:Post}){if(!post)return null;return <div className="post-card"><p>{post.text}</p><span className="small muted">@{post.author} · {fmt(post.created_at)}</span><div><Link post={post}/></div></div>}
-function Candidate({candidate:c,post,onSave,onRecord}:{candidate:any;post?:Post;onSave:(draft:string)=>Promise<boolean>;onRecord:()=>void}){const [draft,setDraft]=useState(c.draft);const [copied,setCopied]=useState(false);const [saving,setSaving]=useState(false);return <section className="card candidate"><div><div className="section-head"><h2>@{post?.author||'unknown'}</h2><span className={'fit '+c.fit}>{c.fit==='high'?'Kecocokan kuat':c.fit==='medium'?'Perlu ditinjau':'Bukti terbatas'}</span></div><PostCard post={post}/><p className="reason">{c.reason}</p>{c.type==='lead'&&<dl className="lead-details"><dt>Kebutuhan</dt><dd>{c.need||'Tidak disebutkan'}</dd><dt>Waktu</dt><dd>{c.timing||'Tidak disebutkan'}</dd><dt>Budget</dt><dd>{c.budget||'Tidak disebutkan'}</dd></dl>}<button className="text-button" onClick={onRecord}>Catat inquiry / DM / order</button></div><div className="draft-box"><label><Sparkles size={16}/> Draft reply · edit sebelum digunakan</label><textarea value={draft} onChange={e=>setDraft(e.target.value)}/><div className="row"><button className="secondary" disabled={saving} onClick={async()=>{setSaving(true);try{await onSave(draft)}finally{setSaving(false)}}}>{saving?'Menyimpan…':'Simpan draft'}</button><button className="primary" onClick={async()=>{try{await navigator.clipboard.writeText(draft);setCopied(true);setTimeout(()=>setCopied(false),2000)}catch{alert('Clipboard tidak tersedia. Pilih dan salin teks secara manual.')}}}>{copied?<Check size={15}/>:<Copy size={15}/>} {copied?'Tersalin':'Salin'}</button></div><small className="muted">Kamu yang mengirim. Tidak ada auto-reply.</small></div></section>}
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Orbit,
+  UserRound,
+  MessagesSquare,
+  ChartNoAxesCombined,
+  Users,
+  Target,
+  NotebookPen,
+  Settings,
+  Search,
+  Download,
+  Upload,
+  Plus,
+  ExternalLink,
+  Copy,
+  Check,
+  Trash2,
+  Sparkles,
+  Pin,
+  Wallet,
+  LoaderCircle,
+} from 'lucide-react';
+import {
+  categories,
+  stats,
+  engagement,
+  sourceUrl,
+  queryFor,
+  type Run,
+  type Post,
+  type Mode,
+} from '../lib/domain';
+type View = Mode | 'outcomes' | 'settings';
+const nav = [
+  ['account', 'Analisis akun', UserRound],
+  ['topics', 'Topik percakapan', ChartNoAxesCombined],
+  ['replies', 'Peluang reply', MessagesSquare],
+  ['leads', 'Potential leads', Target],
+  ['connections', 'Community', Users],
+  ['outcomes', 'Inquiry & order', NotebookPen],
+  ['settings', 'Koneksi & budget', Settings],
+] as const;
+const money = (v: number) => '$' + v.toFixed(3);
+const fmt = (d?: string) =>
+  d
+    ? new Date(d).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
+const num = (n: number | null | undefined) =>
+  n == null ? '—' : n.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+function Link({ post }: { post?: Post }) {
+  if (!post) return null;
+  const url = sourceUrl(post);
+  return url ? (
+    <a className="source" href={url} target="_blank" rel="noreferrer">
+      Lihat di X <ExternalLink size={13} />
+    </a>
+  ) : (
+    <span className="muted small">Sumber tidak tersedia</span>
+  );
+}
+function download(data: unknown, name: string) {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+  );
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+const emptyOutcome = {
+  account: '',
+  type: 'Inquiry',
+  date: new Date().toISOString().slice(0, 10),
+  source: '',
+  attribution: 'Tidak diketahui',
+  amount: '',
+  currency: 'USD',
+  notes: '',
+};
+export default function Page() {
+  const [view, setView] = useState<View>('account');
+  const [state, setState] = useState<any>({
+    runs: [],
+    outcomes: [],
+    usage: [],
+    configured: { x: false, ai: false },
+  });
+  const [selected, setSelected] = useState('');
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [handle, setHandle] = useState('');
+  const [niche, setNiche] = useState('VTuber');
+  const [language, setLanguage] = useState('en');
+  const [query, setQuery] = useState('');
+  const [postLimit, setPostLimit] = useState(50);
+  const [kind, setKind] = useState('original');
+  const [category, setCategory] = useState('All');
+  const [filter, setFilter] = useState('');
+  const [outcome, setOutcome] = useState<any>(emptyOutcome);
+  const [editId, setEditId] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [tab, setTab] = useState('posts');
+  async function load() {
+    const res = await fetch('/api/desk');
+    const data: any = await res.json();
+    if (!res.ok) throw Error(data.error);
+    setState(data);
+    setSelected((old) => (data.runs.some((r: Run) => r.id === old) ? old : data.runs[0]?.id || ''));
+  }
+  useEffect(() => {
+    load().catch((e) => setError(e.message));
+  }, []);
+  async function act(action: string, data: any = {}) {
+    setBusy(action);
+    setError('');
+    setMessage('');
+    try {
+      const r = await fetch('/api/desk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...data }),
+      });
+      const j: any = await r.json();
+      if (!r.ok) throw Error(j.error);
+      await load();
+      if (j.id) setSelected(j.id);
+      setMessage(
+        action === 'collect'
+          ? 'Data tersimpan. Pilih Analisis AI untuk menilai konten.'
+          : action === 'analyze'
+            ? 'Analisis tersimpan.'
+            : 'Tersimpan.',
+      );
+      return true;
+    } catch (e) {
+      setError((e as Error).message);
+      return false;
+    } finally {
+      setBusy('');
+    }
+  }
+  const runs: Run[] = state.runs;
+  const run = runs.find((r) => r.id === selected);
+  const a = run?.analysis;
+  const posts = run?.payload.posts || [];
+  const postCount = run?.payload.post_limit || 50;
+  const stat = useMemo(() => stats(posts, postCount), [posts, postCount]);
+  const xSpent = Number(state.usage.find((u: any) => u.provider === 'x')?.total || 0);
+  const aiSpent = Number(state.usage.find((u: any) => u.provider === 'ai')?.total || 0);
+  const classified = new Map(a?.posts.map((p) => [p.id, p]));
+  const visible = posts.filter(
+    (p) =>
+      (kind === 'all' ||
+        (kind === 'original' ? ['original', 'quote'].includes(p.kind) : p.kind === kind)) &&
+      (category === 'All' || classified.get(p.id)?.category === category) &&
+      `${p.text} ${p.author}`.toLowerCase().includes(filter.toLowerCase()),
+  );
+  const candidateType = view === 'leads' ? 'lead' : view === 'connections' ? 'connection' : 'reply';
+  const candidates = a?.candidates.filter((c) => c.type === candidateType) || [];
+  async function importFile(file?: File) {
+    if (!file) return;
+    try {
+      const raw = JSON.parse(await file.text());
+      await act('import', {
+        mode: view === 'settings' || view === 'outcomes' ? 'account' : view,
+        target: file.name,
+        data: raw.payload || raw,
+      });
+    } catch {
+      setError('File harus JSON dengan format dataset. Unduh contoh di Koneksi & budget.');
+    }
+  }
+  const title = nav.find((n) => n[0] === view)?.[1];
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <Orbit size={31} />
+          <span>
+            orbit<span className="brand-dot">.</span>
+          </span>
+        </div>
+        <p className="workspace-label">NATANAEL'S WORKSPACE</p>
+        <nav>
+          {nav.map(([id, label, Icon]) => (
+            <button
+              key={id}
+              onClick={() => {
+                setView(id);
+                setQuery('');
+                setError('');
+                if (id !== 'account') setPostLimit((old) => (old < 10 ? 10 : old));
+              }}
+              className={view === id ? 'active' : ''}
+            >
+              <Icon size={19} />
+              {label}
+              {id === 'leads' && a && (
+                <span className="nav-count">
+                  {a.candidates.filter((c) => c.type === 'lead').length}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="side-note">
+          <span className="tiny-label">RESEARCH FOCUS</span>
+          <strong>Pre-debut VTuber</strong>
+          <p>Stream assets · Community first</p>
+        </div>
+        <div className="side-user">
+          <span className="avatar">N</span>
+          <div>
+            <strong>Natanael</strong>
+            <small>Personal research desk</small>
+          </div>
+        </div>
+      </aside>
+      <div className="workspace">
+        <header className="topbar">
+          <span>
+            Workspace <span className="slash">/</span> <strong>{title}</strong>
+          </span>
+          <div className="top-actions">
+            <span className="local-pill">On demand</span>
+            <button
+              className="icon-button"
+              title="Koneksi dan budget"
+              onClick={() => setView('settings')}
+            >
+              <Settings size={19} />
+            </button>
+          </div>
+        </header>
+        <main>
+          <div className="page-heading">
+            <div>
+              <span className="eyebrow">X RESEARCH DESK</span>
+              <h1>{title}</h1>
+              <p>
+                {view === 'account'
+                  ? 'Pahami kontennya. Temukan pola komunikasinya.'
+                  : view === 'topics'
+                    ? 'Topik yang muncul dalam sampel percakapanmu.'
+                    : view === 'replies'
+                      ? 'Mulai percakapan yang relevan, dengan suaramu sendiri.'
+                      : view === 'leads'
+                        ? 'Cari bukti kebutuhan, bukan sekadar profil yang cocok.'
+                        : view === 'connections'
+                          ? 'Temukan sesama creator untuk saling mendukung.'
+                          : view === 'outcomes'
+                            ? 'Catat hasil nyata dan dari mana percakapan dimulai.'
+                            : 'Siapkan koneksi. Kendalikan pengeluaran.'}
+              </p>
+            </div>
+            <div className="row">
+              <button
+                className="secondary"
+                disabled={!run}
+                onClick={() =>
+                  run && download(run, `orbit-${run.target.replace(/[^\w-]/g, '_')}.json`)
+                }
+              >
+                <Download size={16} />
+                Ekspor
+              </button>
+              <label className="secondary import-label">
+                <Upload size={16} />
+                Impor
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(e) => {
+                    importFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+          {error && (
+            <div role="alert" className="notice error">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div role="status" className="notice success">
+              {message}
+            </div>
+          )}
+          {busy && (
+            <div role="status" className="notice">
+              <LoaderCircle className="spin" size={17} />{' '}
+              {busy === 'analyze'
+                ? 'AI sedang membaca sampel. Bisa memerlukan 1–2 menit…'
+                : 'Memproses…'}
+            </div>
+          )}
+          {view !== 'settings' && view !== 'outcomes' && (
+            <>
+              <section className="research-bar">
+                <div className="field">
+                  <label>{view === 'account' ? 'Username akun' : 'Niche / keyword'}</label>
+                  <div className="input-icon">
+                    <Search size={17} />
+                    <input
+                      value={view === 'account' ? handle : niche}
+                      onChange={(e) =>
+                        view === 'account' ? setHandle(e.target.value) : setNiche(e.target.value)
+                      }
+                      placeholder={view === 'account' ? '@username' : 'VTuber'}
+                    />
+                  </div>
+                </div>
+                <div className="field compact">
+                  <label>Bahasa reply</label>
+                  <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                    <option value="en">English</option>
+                    <option value="id">Indonesia</option>
+                    <option value="ja">Japanese</option>
+                  </select>
+                </div>
+                <div className="field compact sample-count">
+                  <label htmlFor="post-limit">Jumlah post</label>
+                  <input
+                    id="post-limit"
+                    type="number"
+                    min={view === 'account' ? 5 : 10}
+                    max="100"
+                    step="1"
+                    value={postLimit}
+                    onChange={(e) => setPostLimit(Number(e.target.value))}
+                  />
+                  <small>
+                    {view === 'account'
+                      ? 'original + quote; replies/repost tetap 50 · maks 100'
+                      : 'hasil recent · maks 100'}
+                  </small>
+                </div>
+                <button
+                  className="primary"
+                  disabled={
+                    !!busy ||
+                    !state.configured.x ||
+                    !Number.isInteger(postLimit) ||
+                    postLimit < (view === 'account' ? 5 : 10) ||
+                    postLimit > 100 ||
+                    (view === 'account' && !handle.trim())
+                  }
+                  onClick={() =>
+                    act('collect', {
+                      mode: view,
+                      target: handle,
+                      niche,
+                      language,
+                      query,
+                      postLimit,
+                    })
+                  }
+                >
+                  <Search size={17} />
+                  Ambil data X
+                </button>
+              </section>
+              {view !== 'account' && (
+                <details className="query-box">
+                  <summary>Edit query pencarian X</summary>
+                  <input
+                    aria-label="Query pencarian X"
+                    value={query}
+                    placeholder={queryFor(view as Mode, niche, language)}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <small>
+                    Default mencari post recent; bahasa bisa diubah. Edit query untuk kebutuhan
+                    lebih spesifik.
+                  </small>
+                </details>
+              )}
+              <div className="context-row">
+                <div className="row">
+                  <label htmlFor="run-select">Riset tersimpan</label>
+                  <select
+                    id="run-select"
+                    value={selected}
+                    onChange={(e) => setSelected(e.target.value)}
+                  >
+                    <option value="">Pilih riset</option>
+                    {runs.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.source === 'demo' ? '[DEMO] ' : ''}
+                        {r.target} · {r.mode} · {fmt(r.created)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <span className="muted small">
+                  {run ? 'Diambil ' + fmt(run.created) : 'Belum ada pengambilan'}
+                </span>
+              </div>
+              {!run ? (
+                <section className="empty card">
+                  <Orbit size={44} />
+                  <h2>Mulai dari satu akun.</h2>
+                  <p>
+                    Hubungkan API untuk mengambil data, atau coba data fiktif untuk menjelajahi
+                    seluruh alur.
+                  </p>
+                  <button className="primary" disabled={!!busy} onClick={() => act('demo')}>
+                    Coba data demo
+                  </button>
+                  <button className="text-button" onClick={() => setView('settings')}>
+                    Siapkan API & lihat format impor
+                  </button>
+                </section>
+              ) : (
+                <>
+                  {run.source === 'demo' && (
+                    <div className="demo-strip">
+                      DEMO FIKTIF{' '}
+                      <span>
+                        Contoh untuk mencoba dashboard. Bukan akun, metrik, atau leads nyata.
+                      </span>
+                    </div>
+                  )}
+                  <div className="analysis-actions">
+                    <span className="small muted">
+                      {run.payload.profile ? '@' + run.payload.profile.username : run.target} ·{' '}
+                      {posts.length} record · {a ? 'Analisis tersedia' : 'Belum dianalisis'}
+                    </span>
+                    <div className="row">
+                      <button
+                        className="secondary"
+                        disabled={!!busy || !state.configured.ai || run.source === 'demo' || !!a}
+                        onClick={() => act('analyze', { id: run.id, language, niche })}
+                      >
+                        <Sparkles size={15} />
+                        {a ? 'Analisis tersimpan' : 'Analisis AI'}
+                      </button>
+                      <button
+                        className="icon-button"
+                        title="Hapus riset ini"
+                        disabled={!!busy}
+                        onClick={() => {
+                          if (confirm('Hapus riset ini? Catatan inquiry dan biaya tetap disimpan.'))
+                            act('deleteRun', { id: run.id });
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  {view === 'account' && (
+                    <>
+                      <div className="stats-grid">
+                        <Metric
+                          label="POST ORIGINAL + QUOTE"
+                          value={`${stat.count} / ${postCount}`}
+                          note={
+                            stat.count < postCount
+                              ? 'Sampel belum mencapai target'
+                              : 'Sampel analisis utama'
+                          }
+                        />
+                        <Metric
+                          label="POSTING FREQUENCY"
+                          value={stat.frequency === null ? '—' : num(stat.frequency)}
+                          note={`post / minggu · ${fmt(stat.from)}–${fmt(stat.to)}`}
+                        />
+                        <Metric
+                          label="AVERAGE ENGAGEMENT"
+                          value={num(stat.mean)}
+                          note={`${stat.metricCount} post bermetrik lengkap`}
+                        />
+                        <Metric
+                          label="HIGHEST ENGAGEMENT"
+                          value={num(stat.best ? engagement(stat.best) : null)}
+                          note="likes + replies + reposts + quotes"
+                        />
+                      </div>
+                      <div className="two-column">
+                        <section className="card profile-card">
+                          <div className="section-head">
+                            <h2>Profil & positioning</h2>
+                            <span className="badge">
+                              {run.source === 'demo' ? 'Contoh' : 'Interpretasi AI'}
+                            </span>
+                          </div>
+                          <div className="profile-line">
+                            <span className="profile-avatar">
+                              {(run.payload.profile?.name || '?').slice(0, 1)}
+                            </span>
+                            <div>
+                              <h3>{run.payload.profile?.name || 'Profil tidak tersedia'}</h3>
+                              <p>{run.payload.profile?.bio || 'Bio belum diambil.'}</p>
+                            </div>
+                          </div>
+                          <dl>
+                            <dt>Positioning</dt>
+                            <dd>
+                              {a?.positioning || 'Jalankan analisis AI untuk membaca positioning.'}
+                            </dd>
+                            <dt>Kesan akun</dt>
+                            <dd>{a?.feel || 'Belum dianalisis'}</dd>
+                            <dt>Personal brand</dt>
+                            <dd>{a?.brand || 'Belum dianalisis'}</dd>
+                          </dl>
+                          <div className="evidence">
+                            {a?.evidence_ids.map((id) => (
+                              <Link key={id} post={posts.find((p) => p.id === id)} />
+                            ))}
+                          </div>
+                        </section>
+                        <section className="card">
+                          <div className="section-head">
+                            <h2>Content mix</h2>
+                            <span className="small muted">Kategori utama</span>
+                          </div>
+                          <div className="mix">
+                            {categories.map((c, i) => {
+                              const count =
+                                a?.posts.filter(
+                                  (p) =>
+                                    p.category === c &&
+                                    posts.some(
+                                      (x) =>
+                                        x.id === p.id && ['original', 'quote'].includes(x.kind),
+                                    ),
+                                ).length || 0;
+                              return (
+                                <div key={c} className="mix-line">
+                                  <span>{c}</span>
+                                  <div className="track">
+                                    <div
+                                      style={{
+                                        width: `${stat.count ? (count / stat.count) * 100 : 0}%`,
+                                        background: [
+                                          '#e97051',
+                                          '#176c63',
+                                          '#7388a0',
+                                          '#589ea4',
+                                          '#b0aa67',
+                                          '#805e94',
+                                        ][i],
+                                      }}
+                                    />
+                                  </div>
+                                  <strong>{count}</strong>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {!a && (
+                            <p className="muted small">Kategori tersedia setelah analisis AI.</p>
+                          )}
+                          <p className="footnote">
+                            Satu kategori utama per post. Tag tambahan muncul di tabel.
+                          </p>
+                        </section>
+                      </div>
+                      <div className="tabs">
+                        <button
+                          className={tab === 'posts' ? 'chosen' : ''}
+                          onClick={() => setTab('posts')}
+                        >
+                          Post & tone
+                        </button>
+                        <button
+                          className={tab === 'behavior' ? 'chosen' : ''}
+                          onClick={() => setTab('behavior')}
+                        >
+                          Replies & repost
+                        </button>
+                        <button
+                          className={tab === 'highlights' ? 'chosen' : ''}
+                          onClick={() => setTab('highlights')}
+                        >
+                          Pinned & highlights
+                        </button>
+                      </div>
+                      {tab === 'posts' ? (
+                        <section className="card table-card">
+                          <div className="table-tools">
+                            <div className="row">
+                              <select
+                                aria-label="Jenis post"
+                                value={kind}
+                                onChange={(e) => setKind(e.target.value)}
+                              >
+                                <option value="original">Original + quote</option>
+                                <option value="reply">Replies</option>
+                                <option value="repost">Reposts</option>
+                                <option value="context">Konteks</option>
+                                <option value="all">Semua</option>
+                              </select>
+                              <select
+                                aria-label="Kategori"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                              >
+                                <option>All</option>
+                                {categories.map((c) => (
+                                  <option key={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <input
+                              aria-label="Cari post"
+                              placeholder="Cari teks atau akun…"
+                              value={filter}
+                              onChange={(e) => setFilter(e.target.value)}
+                            />
+                          </div>
+                          <div className="table-scroll">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>POST / TANGGAL</th>
+                                  <th>KATEGORI & TONE</th>
+                                  <th>LIKES</th>
+                                  <th>REPLIES</th>
+                                  <th>REPOSTS</th>
+                                  <th>QUOTES</th>
+                                  <th>VIEWS</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {visible.map((p) => {
+                                  const c = classified.get(p.id);
+                                  return (
+                                    <tr key={p.id}>
+                                      <td className="post-cell">
+                                        <p>{p.text}</p>
+                                        <div className="row small muted">
+                                          <span>
+                                            @{p.author} · {fmt(p.created_at)}
+                                          </span>
+                                          <Link post={p} />
+                                        </div>
+                                      </td>
+                                      <td className="tone-cell">
+                                        <span
+                                          className={'category category-' + (c?.category || 'none')}
+                                        >
+                                          {c?.category || 'Belum dianalisis'}
+                                        </span>
+                                        <p>{c?.tone || '—'}</p>
+                                        {c?.tags.length ? (
+                                          <small>{c.tags.join(' · ')}</small>
+                                        ) : null}
+                                        <details>
+                                          <summary>Alasan</summary>
+                                          {c?.reason || 'Belum tersedia'}
+                                        </details>
+                                      </td>
+                                      <td>{num(p.metrics.likes)}</td>
+                                      <td>{num(p.metrics.replies)}</td>
+                                      <td>{num(p.metrics.reposts)}</td>
+                                      <td>{num(p.metrics.quotes)}</td>
+                                      <td>{num(p.metrics.views)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          {!visible.length && (
+                            <p className="empty-small">Tidak ada post yang cocok.</p>
+                          )}
+                        </section>
+                      ) : tab === 'behavior' ? (
+                        <div className="two-column">
+                          <section className="card">
+                            <h2>Replies · {posts.filter((p) => p.kind === 'reply').length}</h2>
+                            <p>{a?.reply_pattern || 'Belum dianalisis.'}</p>
+                            {posts
+                              .filter((p) => p.kind === 'reply')
+                              .map((p) => (
+                                <PostCard key={p.id} post={p} />
+                              ))}
+                          </section>
+                          <section className="card">
+                            <h2>Reposts · {posts.filter((p) => p.kind === 'repost').length}</h2>
+                            <p>{a?.repost_pattern || 'Belum dianalisis.'}</p>
+                            {posts
+                              .filter((p) => p.kind === 'repost')
+                              .map((p) => (
+                                <PostCard key={p.id} post={p} />
+                              ))}
+                          </section>
+                        </div>
+                      ) : (
+                        <div className="highlight-grid">
+                          <section className="card">
+                            <h2>
+                              <Pin size={17} /> Pinned post
+                            </h2>
+                            {posts.find((p) => p.id === run.payload.profile?.pinned_id) ? (
+                              <PostCard
+                                post={posts.find((p) => p.id === run.payload.profile?.pinned_id)!}
+                              />
+                            ) : (
+                              <p className="muted">
+                                Tidak ada pinned post yang tersedia dalam data.
+                              </p>
+                            )}
+                          </section>
+                          <section className="card">
+                            <h2>Interaksi terbanyak</h2>
+                            {stat.best && <PostCard post={stat.best} />}
+                          </section>
+                          <section className="card">
+                            <h2>Rasio terhadap views</h2>
+                            {stat.rateBest ? (
+                              <>
+                                <strong className="big-number">
+                                  {num(
+                                    (engagement(stat.rateBest)! / stat.rateBest.metrics.views!) *
+                                      100,
+                                  )}
+                                  %
+                                </strong>
+                                <PostCard post={stat.rateBest} />
+                              </>
+                            ) : (
+                              <p>Views tidak tersedia.</p>
+                            )}
+                          </section>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {view === 'topics' && (
+                    <>
+                      <div className="notice">
+                        Topik dominan dalam sampel — belum menyatakan tren meningkat. Gunakan
+                        periode dan query yang sebanding untuk evaluasi lanjutan.
+                      </div>
+                      <div className="topic-grid">
+                        {a?.topics.map((t, i) => (
+                          <section key={i} className="card topic-card">
+                            <span className="topic-number">{String(i + 1).padStart(2, '0')}</span>
+                            <h2>{t.name}</h2>
+                            <p>{t.reason}</p>
+                            <span className="badge">{t.evidence_ids.length} post bukti</span>
+                            {t.evidence_ids.map((id) => (
+                              <PostCard key={id} post={posts.find((p) => p.id === id)} />
+                            ))}
+                          </section>
+                        ))}
+                      </div>
+                      {!a?.topics.length && (
+                        <div className="empty card">
+                          Belum ada topik. Ambil sampel lalu jalankan analisis AI.
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {['leads', 'connections', 'replies'].includes(view) && (
+                    <>
+                      <div className="list-heading">
+                        <h2>{candidates.length} kandidat dalam sampel</h2>
+                        <span className="muted small">
+                          Penilaian AI perlu ditinjau • Tidak ada pengiriman otomatis
+                        </span>
+                      </div>
+                      <div className="candidate-list">
+                        {candidates.map((c, i) => (
+                          <Candidate
+                            key={run.id + c.post_id + c.type}
+                            candidate={c}
+                            post={posts.find((p) => p.id === c.post_id)}
+                            onSave={(draft) =>
+                              act('draft', {
+                                id: run.id,
+                                post_id: c.post_id,
+                                type: c.type,
+                                draft,
+                              })
+                            }
+                            onRecord={() => {
+                              setOutcome({
+                                ...emptyOutcome,
+                                account: posts.find((p) => p.id === c.post_id)?.author || '',
+                                source: sourceUrl(posts.find((p) => p.id === c.post_id)!),
+                              });
+                              setShowForm(true);
+                              setView('outcomes');
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {!candidates.length && (
+                        <div className="empty card">
+                          Belum ada kandidat dengan bukti yang cukup. Jalankan pencarian dan
+                          analisis untuk bagian ini.
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <details className="method">
+                    <summary>Catatan data & metode</summary>
+                    <ul>
+                      {run.payload.warnings.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                    <p>
+                      Frequency = (jumlah post − 1) ÷ selisih hari antar post terlama/terbaru × 7.
+                      Sampel bukan kalender mingguan lengkap. Engagement = likes + replies + reposts
+                      + quotes; data kosong tidak dianggap nol. Kategori, brand, dan penilaian
+                      kandidat adalah interpretasi. Inquiry, DM, order hanya berasal dari catatan
+                      manual.
+                    </p>
+                  </details>
+                </>
+              )}
+            </>
+          )}
+          {view === 'outcomes' && (
+            <>
+              <div className="stats-grid">
+                <Metric
+                  label="INQUIRY TERCATAT"
+                  value={String(state.outcomes.filter((o: any) => o.type === 'Inquiry').length)}
+                  note="Input manual"
+                />
+                <Metric
+                  label="DM TERCATAT"
+                  value={String(state.outcomes.filter((o: any) => o.type === 'DM').length)}
+                  note="Input manual"
+                />
+                <Metric
+                  label="ORDER TERCATAT"
+                  value={String(state.outcomes.filter((o: any) => o.type === 'Order').length)}
+                  note="Input manual"
+                />
+                <Metric
+                  label="ATRIBUSI DIKONFIRMASI"
+                  value={String(
+                    state.outcomes.filter((o: any) => o.attribution === 'Dikonfirmasi client')
+                      .length,
+                  )}
+                  note="Sumber dikonfirmasi client"
+                />
+              </div>
+              <div className="list-heading">
+                <p>Angka ini tidak diturunkan dari views atau likes.</p>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setEditId('');
+                    setOutcome(emptyOutcome);
+                    setShowForm(true);
+                  }}
+                >
+                  <Plus size={16} />
+                  Tambah catatan
+                </button>
+              </div>
+              {showForm && (
+                <form
+                  className="card outcome-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (
+                      await act('outcome', {
+                        id: editId || undefined,
+                        data: {
+                          ...outcome,
+                          amount: outcome.amount === '' ? null : Number(outcome.amount),
+                        },
+                      })
+                    ) {
+                      setShowForm(false);
+                      setEditId('');
+                      setOutcome(emptyOutcome);
+                    }
+                  }}
+                >
+                  <h2>{editId ? 'Edit' : 'Tambah'} catatan hasil</h2>
+                  <div className="form-grid">
+                    {[
+                      ['account', 'Akun'],
+                      ['date', 'Tanggal'],
+                      ['source', 'Link sumber (opsional)'],
+                      ['amount', 'Nilai order (opsional)'],
+                    ].map(([key, label]) => (
+                      <label key={key}>
+                        {label}
+                        <input
+                          required={key === 'account' || key === 'date'}
+                          type={key === 'date' ? 'date' : key === 'amount' ? 'number' : 'text'}
+                          min={key === 'amount' ? '0' : undefined}
+                          step={key === 'amount' ? '0.01' : undefined}
+                          value={outcome[key]}
+                          onChange={(e) => setOutcome({ ...outcome, [key]: e.target.value })}
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      Jenis
+                      <select
+                        value={outcome.type}
+                        onChange={(e) => setOutcome({ ...outcome, type: e.target.value })}
+                      >
+                        {['Inquiry', 'DM', 'Order'].map((x) => (
+                          <option key={x}>{x}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Atribusi
+                      <select
+                        value={outcome.attribution}
+                        onChange={(e) =>
+                          setOutcome({
+                            ...outcome,
+                            attribution: e.target.value,
+                          })
+                        }
+                      >
+                        {['Tidak diketahui', 'Catatan pribadi', 'Dikonfirmasi client'].map((x) => (
+                          <option key={x}>{x}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Mata uang
+                      <select
+                        value={outcome.currency}
+                        onChange={(e) => setOutcome({ ...outcome, currency: e.target.value })}
+                      >
+                        <option>USD</option>
+                        <option>IDR</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Catatan
+                    <textarea
+                      value={outcome.notes}
+                      onChange={(e) => setOutcome({ ...outcome, notes: e.target.value })}
+                    />
+                  </label>
+                  <div className="row">
+                    <button disabled={!!busy} className="primary">
+                      Simpan catatan
+                    </button>
+                    <button type="button" className="secondary" onClick={() => setShowForm(false)}>
+                      Batal
+                    </button>
+                  </div>
+                </form>
+              )}
+              <section className="card table-card">
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>TANGGAL</th>
+                        <th>AKUN / JENIS</th>
+                        <th>SUMBER & ATRIBUSI</th>
+                        <th>NILAI</th>
+                        <th>CATATAN</th>
+                        <th>AKSI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {state.outcomes.map((o: any) => (
+                        <tr key={o.id}>
+                          <td>{fmt(o.date)}</td>
+                          <td>
+                            <strong>{o.account}</strong>
+                            <p>
+                              <span className="badge">{o.type}</span>
+                            </p>
+                          </td>
+                          <td>
+                            {/^https:\/\/(x\.com|twitter\.com)\//.test(o.source) ? (
+                              <a href={o.source} target="_blank" rel="noreferrer">
+                                Link sumber
+                              </a>
+                            ) : (
+                              <span>{o.source || 'Tidak diketahui'}</span>
+                            )}
+                            <p className="small muted">{o.attribution}</p>
+                          </td>
+                          <td>{o.amount === null ? '—' : o.currency + ' ' + num(o.amount)}</td>
+                          <td>{o.notes || '—'}</td>
+                          <td>
+                            <div className="row">
+                              <button
+                                className="text-button"
+                                onClick={() => {
+                                  setOutcome({ ...o, amount: o.amount ?? '' });
+                                  setEditId(o.id);
+                                  setShowForm(true);
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                title="Hapus catatan"
+                                className="icon-button"
+                                onClick={() => {
+                                  if (confirm('Hapus catatan ini?'))
+                                    act('deleteOutcome', { id: o.id });
+                                }}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!state.outcomes.length && (
+                  <div className="empty-small">Belum ada inquiry, DM, atau order yang dicatat.</div>
+                )}
+              </section>
+              <button
+                className="text-button"
+                onClick={() => download(state.outcomes, 'orbit-outcomes.json')}
+              >
+                Ekspor catatan hasil
+              </button>
+            </>
+          )}
+          {view === 'settings' && (
+            <>
+              <div className="two-column">
+                <section className="card">
+                  <div className="section-head">
+                    <h2>
+                      <Wallet size={18} /> Penggunaan API
+                    </h2>
+                    <span className="badge">Tanpa batas lokal</span>
+                  </div>
+                  <Budget label="X API" spent={xSpent} />
+                  <Budget label="OpenAI API" spent={aiSpent} />
+                  <p className="footnote">
+                    Estimasi pemakaian Orbit secara kumulatif; aplikasi tidak menghentikan request
+                    karena batas lokal. Jika saldo, akses, atau spending limit provider tidak
+                    mencukupi, API akan menolak request. Penggunaan di aplikasi lain, pajak, dan
+                    kurs tidak termasuk. Request dengan status tidak pasti tetap dicadangkan.
+                    Cocokkan dengan billing provider.
+                  </p>
+                </section>
+                <section className="card">
+                  <h2>Status koneksi</h2>
+                  <div className="connection">
+                    <strong>X API</strong>
+                    <span className="badge">
+                      {state.configured.x ? 'Token terisi • belum diverifikasi' : 'Belum diisi'}
+                    </span>
+                  </div>
+                  <div className="connection">
+                    <strong>OpenAI · GPT-5.4 mini</strong>
+                    <span className="badge">
+                      {state.configured.ai ? 'Key terisi • belum diverifikasi' : 'Belum diisi'}
+                    </span>
+                  </div>
+                  <p className="muted">
+                    Key disimpan di file .env lokal, tidak dikirim ke browser atau disimpan dalam
+                    ekspor.
+                  </p>
+                  <p>
+                    <a target="_blank" rel="noreferrer" href="https://console.x.com/">
+                      X Developer Console
+                    </a>{' '}
+                    ·{' '}
+                    <a
+                      target="_blank"
+                      rel="noreferrer"
+                      href="https://platform.openai.com/settings/organization/billing/overview"
+                    >
+                      OpenAI Billing
+                    </a>{' '}
+                    ·{' '}
+                    <a target="_blank" rel="noreferrer" href="https://platform.openai.com/api-keys">
+                      OpenAI API keys
+                    </a>
+                  </p>
+                </section>
+              </div>
+              <section className="card setup">
+                <h2>Jalankan di laptopmu</h2>
+                <ol>
+                  <li>
+                    Salin <code>.env.example</code> menjadi <code>.env</code>.
+                  </li>
+                  <li>
+                    Isi <code>X_BEARER_TOKEN</code> dari app di Developer Console X dan{' '}
+                    <code>OPENAI_API_KEY</code> dari OpenAI.
+                  </li>
+                  <li>
+                    Jalankan <code>npm run local</code>, lalu buka alamat lokal yang ditampilkan.
+                  </li>
+                </ol>
+                <p>
+                  Data disimpan di SQLite lokal melalui runtime Wrangler. Simpan folder
+                  .wrangler/state untuk mempertahankan riset dan catatanmu. Tidak ada fitur posting,
+                  DM, atau reply otomatis.
+                </p>
+              </section>
+              <section className="card">
+                <h2>Coba sebelum mengisi key</h2>
+                <p>
+                  Demo memakai 50 post original fiktif, contoh replies/repost, dan kandidat. Impor
+                  memakai format JSON yang sama; data impor tetap ditandai sebagai impor.
+                </p>
+                <div className="row">
+                  <button
+                    className="primary"
+                    disabled={!!busy}
+                    onClick={async () => {
+                      if (await act('demo')) setView('account');
+                    }}
+                  >
+                    Muat demo fiktif
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      download(
+                        {
+                          profile: {
+                            username: 'your_handle',
+                            name: 'Creator',
+                            bio: '',
+                            pinned_id: null,
+                          },
+                          posts: [
+                            {
+                              id: 'REAL_POST_ID',
+                              text: 'Isi teks post',
+                              author: 'your_handle',
+                              created_at: new Date().toISOString(),
+                              kind: 'original',
+                              url: '',
+                              metrics: {
+                                likes: null,
+                                replies: null,
+                                reposts: null,
+                                quotes: null,
+                                views: null,
+                              },
+                              media: [],
+                              references: [],
+                            },
+                          ],
+                          warnings: ['Data diimpor manual.'],
+                        },
+                        'orbit-import-template.json',
+                      )
+                    }
+                  >
+                    Unduh template JSON
+                  </button>
+                </div>
+              </section>
+            </>
+          )}
+          <footer>
+            <span>
+              orbit. <span className="muted">Research with context.</span>
+            </span>
+            <span>Data → bukti → percakapan</span>
+          </footer>
+        </main>
+      </div>
+    </div>
+  );
+}
+function Metric({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <section className="metric">
+      <span className="tiny-label">{label}</span>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </section>
+  );
+}
+function Budget({ label, spent }: { label: string; spent: number }) {
+  return (
+    <div className="budget">
+      <div className="row">
+        <strong>{label}</strong>
+        <span>{money(spent)} · estimasi tercatat</span>
+      </div>
+    </div>
+  );
+}
+function PostCard({ post }: { post?: Post }) {
+  if (!post) return null;
+  return (
+    <div className="post-card">
+      <p>{post.text}</p>
+      <span className="small muted">
+        @{post.author} · {fmt(post.created_at)}
+      </span>
+      <div>
+        <Link post={post} />
+      </div>
+    </div>
+  );
+}
+function Candidate({
+  candidate: c,
+  post,
+  onSave,
+  onRecord,
+}: {
+  candidate: any;
+  post?: Post;
+  onSave: (draft: string) => Promise<boolean>;
+  onRecord: () => void;
+}) {
+  const [draft, setDraft] = useState(c.draft);
+  const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  return (
+    <section className="card candidate">
+      <div>
+        <div className="section-head">
+          <h2>@{post?.author || 'unknown'}</h2>
+          <span className={'fit ' + c.fit}>
+            {c.fit === 'high'
+              ? 'Kecocokan kuat'
+              : c.fit === 'medium'
+                ? 'Perlu ditinjau'
+                : 'Bukti terbatas'}
+          </span>
+        </div>
+        <PostCard post={post} />
+        <p className="reason">{c.reason}</p>
+        {c.type === 'lead' && (
+          <dl className="lead-details">
+            <dt>Kebutuhan</dt>
+            <dd>{c.need || 'Tidak disebutkan'}</dd>
+            <dt>Waktu</dt>
+            <dd>{c.timing || 'Tidak disebutkan'}</dd>
+            <dt>Budget</dt>
+            <dd>{c.budget || 'Tidak disebutkan'}</dd>
+          </dl>
+        )}
+        <button className="text-button" onClick={onRecord}>
+          Catat inquiry / DM / order
+        </button>
+      </div>
+      <div className="draft-box">
+        <label>
+          <Sparkles size={16} /> Draft reply · edit sebelum digunakan
+        </label>
+        <textarea value={draft} onChange={(e) => setDraft(e.target.value)} />
+        <div className="row">
+          <button
+            className="secondary"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSave(draft);
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            {saving ? 'Menyimpan…' : 'Simpan draft'}
+          </button>
+          <button
+            className="primary"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(draft);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              } catch {
+                alert('Clipboard tidak tersedia. Pilih dan salin teks secara manual.');
+              }
+            }}
+          >
+            {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? 'Tersalin' : 'Salin'}
+          </button>
+        </div>
+        <small className="muted">Kamu yang mengirim. Tidak ada auto-reply.</small>
+      </div>
+    </section>
+  );
+}
