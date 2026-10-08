@@ -63,4 +63,21 @@ test('lead discovery queries retain niche and language', () => {
   assert.match(q, /VTuber/);
   assert.match(q, /lang:en/);
   assert.match(q, /looking for/);
+  assert.match(q, /stream assets/);
+  assert.match(q, /-is:retweet/);
+});
+
+test('lead discovery query supports DnD preset intent', () => {
+  const q = queryFor('leads', 'DnD OR TTRPG', 'en', 'dnd');
+  assert.match(q, /DnD OR TTRPG/);
+  assert.match(q, /character art/);
+  assert.match(q, /party portrait/);
+  assert.match(q, /lang:en/);
+  assert.match(q, /-is:retweet/);
+});
+
+test('imported datasets may persist lead preset metadata', () => {
+  const p = post('1', '2026-10-01T00:00:00Z');
+  const parsed = DatasetSchema.parse({ profile: null, posts: [p], lead_preset: 'dnd' });
+  assert.equal(parsed.lead_preset, 'dnd');
 });

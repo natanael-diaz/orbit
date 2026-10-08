@@ -28,6 +28,8 @@ import {
   engagement,
   sourceUrl,
   queryFor,
+  leadPresets,
+  type LeadPreset,
   type Run,
   type Post,
   type Mode,
@@ -98,6 +100,7 @@ export default function Page() {
   const [error, setError] = useState('');
   const [handle, setHandle] = useState('');
   const [niche, setNiche] = useState('VTuber');
+  const [leadPreset, setLeadPreset] = useState<LeadPreset>('vtuber');
   const [language, setLanguage] = useState('en');
   const [query, setQuery] = useState('');
   const [postLimit, setPostLimit] = useState(50);
@@ -363,6 +366,7 @@ export default function Page() {
                       language,
                       query,
                       postLimit,
+                      leadPreset,
                     })
                   }
                 >
@@ -370,13 +374,31 @@ export default function Page() {
                   Ambil data X
                 </button>
               </section>
+              {view === 'leads' && (
+                <section className="research-bar preset-bar">
+                  <div className="field">
+                    <label>Lead preset</label>
+                    <select
+                      value={leadPreset}
+                      onChange={(e) => setLeadPreset(e.target.value as LeadPreset)}
+                    >
+                      {Object.entries(leadPresets).map(([id, preset]) => (
+                        <option key={id} value={id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="muted small">{leadPresets[leadPreset].intent}</p>
+                </section>
+              )}
               {view !== 'account' && (
                 <details className="query-box">
                   <summary>Edit query pencarian X</summary>
                   <input
                     aria-label="Query pencarian X"
                     value={query}
-                    placeholder={queryFor(view as Mode, niche, language)}
+                    placeholder={queryFor(view as Mode, niche, language, leadPreset)}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                   <small>

@@ -1,5 +1,5 @@
 import { secrets, reserve, settle } from './store';
-import { queryFor, type Dataset, type Post, type Mode } from './domain';
+import { queryFor, type Dataset, type Post, type Mode, type LeadPreset } from './domain';
 const fields = 'created_at,public_metrics,author_id,referenced_tweets,attachments,note_tweet';
 async function xGet(path: string, params: Record<string, string>, ceiling: number) {
   if (!secrets().x) throw Error('X Bearer Token belum diisi di .env.');
@@ -178,8 +178,9 @@ export async function collectSearch(
   language: string,
   custom: string,
   postLimit = 50,
+  leadPreset?: LeadPreset,
 ): Promise<Dataset> {
-  const query = custom.trim() || queryFor(mode, niche, language);
+  const query = custom.trim() || queryFor(mode, niche, language, leadPreset);
   if (query.length > 450) throw Error('Query terlalu panjang (maks. 450 karakter).');
   const r = await xGet(
     'tweets/search/recent',
@@ -201,5 +202,6 @@ export async function collectSearch(
       'Analisis awal berbasis teks; gambar tidak dianalisis otomatis.',
     ],
     post_limit: postLimit,
+    lead_preset: mode === 'leads' ? leadPreset : undefined,
   };
 }

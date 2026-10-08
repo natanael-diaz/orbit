@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { db, state, getRun, saveRun } from '../../../lib/store';
-import { DatasetSchema, modes, AnalysisSchema } from '../../../lib/domain';
+import { DatasetSchema, modes, AnalysisSchema, leadPresetFor } from '../../../lib/domain';
 import { demo } from '../../../lib/demo';
 import { collectAccount, collectSearch } from '../../../lib/x-api';
 import { analyze } from '../../../lib/ai';
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
           language: z.string().regex(/^[a-z]{2}$/),
           query: z.string().max(450),
           postLimit: z.number().int().min(5).max(100),
+          leadPreset: z.string().optional(),
         })
         .parse(b);
       if (p.mode !== 'account' && p.postLimit < 10)
@@ -60,7 +61,14 @@ export async function POST(request: Request) {
       const data =
         p.mode === 'account'
           ? await collectAccount(p.target.replace(/^@/, ''), p.postLimit)
-          : await collectSearch(p.mode, p.niche, p.language, p.query, p.postLimit);
+          : await collectSearch(
+              p.mode,
+              p.niche,
+              p.language,
+              p.query,
+              p.postLimit,
+              p.mode === 'leads' ? leadPresetFor(p.leadPreset) : undefined,
+            );
       id = await saveRun(p.mode, p.mode === 'account' ? p.target : p.query || p.niche, 'x', data);
     } else if (b.action === 'import') {
       const data = DatasetSchema.parse(b.data);

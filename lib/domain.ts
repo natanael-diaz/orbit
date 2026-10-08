@@ -8,6 +8,53 @@ export const categories = [
   'Community',
 ] as const;
 export const modes = ['account', 'topics', 'replies', 'leads', 'connections'] as const;
+export const leadPresets = {
+  vtuber: {
+    label: 'VTuber / stream assets',
+    intent: 'VTuber and streamer buyers seeking emotes, overlays, stream assets, model art, logos, or artist recommendations.',
+    query:
+      '("looking for artist" OR "looking for an artist" OR "need an artist" OR "looking for emotes" OR "need emotes" OR "looking for an overlay" OR "need overlay" OR "need stream assets" OR "artist recommendations" OR "recommend an artist")',
+  },
+  dnd: {
+    label: 'D&D / TTRPG art',
+    intent:
+      'D&D/TTRPG players, DMs, or groups seeking character art, party portraits, token art, map artists, campaign art, or artist recommendations.',
+    query:
+      '("looking for artist" OR "need an artist" OR "character art" OR "character commission" OR "party portrait" OR "token art" OR "map artist" OR "campaign art" OR "artist recommendations")',
+  },
+  streamer: {
+    label: 'Streamer assets',
+    intent:
+      'Streamers seeking emotes, overlays, panels, alerts, logos, branding, PNGtuber assets, or artist recommendations.',
+    query:
+      '("looking for artist" OR "need an artist" OR "looking for emotes" OR "need emotes" OR "stream overlay" OR "twitch panels" OR "stream alerts" OR "streamer logo" OR "artist recommendations")',
+  },
+  indie_game: {
+    label: 'Indie game assets',
+    intent:
+      'Indie developers seeking character design, sprites, key art, UI assets, capsule art, game logos, concept art, or artist recommendations.',
+    query:
+      '("looking for artist" OR "need an artist" OR "game artist" OR "character design" OR "sprite artist" OR "capsule art" OR "key art" OR "UI artist" OR "concept artist")',
+  },
+  podcast: {
+    label: 'Podcast / branding',
+    intent:
+      'Podcasters or creators seeking cover art, logo design, branding, thumbnails, banners, or designer recommendations.',
+    query:
+      '("looking for artist" OR "need an artist" OR "cover art" OR "podcast logo" OR "logo designer" OR "thumbnail artist" OR "banner artist" OR "brand designer" OR "designer recommendations")',
+  },
+  custom: {
+    label: 'Custom / broad art buyer',
+    intent:
+      'Buyers in the supplied niche seeking relevant art, design, creative assets, commissions, or recommendations.',
+    query:
+      '("looking for artist" OR "looking for an artist" OR "need an artist" OR "artist recommendations" OR "recommend an artist" OR "looking for designer" OR "need a designer" OR "commissioning")',
+  },
+} as const;
+export type LeadPreset = keyof typeof leadPresets;
+export function leadPresetFor(value?: string): LeadPreset {
+  return value && value in leadPresets ? (value as LeadPreset) : 'vtuber';
+}
 export const PostSchema = z.object({
   id: z.string().min(1).max(100),
   text: z.string().max(16000),
@@ -38,6 +85,7 @@ export const DatasetSchema = z.object({
   posts: z.array(PostSchema).max(300),
   warnings: z.array(z.string()).default([]),
   post_limit: z.number().int().min(5).max(100).optional(),
+  lead_preset: z.enum(Object.keys(leadPresets) as [LeadPreset, ...LeadPreset[]]).optional(),
 });
 export type Dataset = z.infer<typeof DatasetSchema>;
 export type Mode = (typeof modes)[number];
@@ -117,15 +165,15 @@ export function stats(posts: Post[], limit = 50) {
     rateBest: rates[0],
   };
 }
-export function queryFor(mode: Mode, niche: string, language: string) {
+export function queryFor(mode: Mode, niche: string, language: string, leadPreset?: LeadPreset) {
   const lang = /^[a-z]{2}$/.test(language) ? ` lang:${language}` : '';
   const n = niche.trim() || 'VTuber';
+  const preset = leadPresets[leadPresetFor(leadPreset)];
   const additions = {
     account: '',
     topics: '',
     replies: ' ("debut" OR "VTuber" OR "stream")',
-    leads:
-      ' ("looking for artist" OR "looking for an artist" OR "need an artist" OR "looking for emotes" OR "need emotes" OR "looking for an overlay" OR "need overlay" OR "need stream assets" OR "artist recommendations" OR "recommend an artist")',
+    leads: ` ${preset.query}`,
     connections: ' (artist OR rigger OR designer OR musician)',
   };
   return `${n}${additions[mode]}${lang} -is:retweet`;
