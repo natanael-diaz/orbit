@@ -4,5 +4,6 @@ declare namespace Cloudflare {
     BUCKET?: R2Bucket;
     X_BEARER_TOKEN?: string;
     OPENAI_API_KEY?: string;
+    ORBIT_SETUP_TOKEN?: string;
   }
 }

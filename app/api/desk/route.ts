@@ -1,21 +1,29 @@
 import { z } from 'zod';
-import { db, state, getRun, saveRun } from '../../../lib/store';
+import {
+  state,
+  getRun,
+  saveRun,
+  saveAnalysis,
+  saveOutcome,
+  deleteRun,
+  deleteOutcome,
+} from '../../../lib/store';
+import { currentUser } from '../../../lib/auth';
+import { AccessError } from '../../../lib/accounts';
+import { body, failure } from '../../../lib/http';
 import { DatasetSchema, modes, AnalysisSchema, leadPresetFor } from '../../../lib/domain';
 import { demo } from '../../../lib/demo';
 import { collectAccount, collectSearch } from '../../../lib/x-api';
 import { analyze } from '../../../lib/ai';
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return Response.json(await state(), {
-      headers: { 'Cache-Control': 'no-store' },
-    });
-  } catch {
+    const user = await currentUser(request);
     return Response.json(
-      {
-        error: 'Database belum siap. Jalankan npm run db:local, lalu muat ulang.',
-      },
-      { status: 503 },
+      { ...(await state(user.id)), user },
+      { headers: { 'Cache-Control': 'no-store' } },
     );
+  } catch (e) {
+    return failure(e);
   }
 }
 const Outcome = z.object({
@@ -30,20 +38,12 @@ const Outcome = z.object({
 });
 export async function POST(request: Request) {
   try {
-    const origin = request.headers.get('origin');
-    if (origin && new URL(origin).host !== new URL(request.url).host)
-      return Response.json({ error: 'Origin ditolak' }, { status: 403 });
-    if (request.headers.get('sec-fetch-site') === 'cross-site')
-      return Response.json({ error: 'Origin ditolak' }, { status: 403 });
-    if (!request.headers.get('content-type')?.includes('application/json'))
-      throw Error('JSON diperlukan.');
-    const raw = await request.text();
-    if (raw.length > 2000000) throw Error('Impor maksimal 2 MB.');
-    const b = JSON.parse(raw);
+    const user = await currentUser(request);
+    const b = await body(request, 2000000);
     let id = '';
     if (b.action === 'demo') {
       const d = demo();
-      id = await saveRun('account', 'Sample Creator', 'demo', d.payload, d.analysis);
+      id = await saveRun(user.id, 'account', 'Sample Workspace', 'demo', d.payload, d.analysis);
     } else if (b.action === 'collect') {
       const p = z
         .object({
@@ -58,10 +58,13 @@ export async function POST(request: Request) {
         .parse(b);
       if (p.mode !== 'account' && p.postLimit < 10)
         throw Error('Pencarian recent minimal 10 hasil.');
+      if (p.mode !== 'account' && !p.niche.trim() && !p.query.trim())
+        throw Error('Isi niche / keyword atau query pencarian sebelum mengambil data.');
       const data =
         p.mode === 'account'
-          ? await collectAccount(p.target.replace(/^@/, ''), p.postLimit)
+          ? await collectAccount(user.id, p.target.replace(/^@/, ''), p.postLimit)
           : await collectSearch(
+              user.id,
               p.mode,
               p.niche,
               p.language,
@@ -69,22 +72,30 @@ export async function POST(request: Request) {
               p.postLimit,
               p.mode === 'leads' ? leadPresetFor(p.leadPreset) : undefined,
             );
-      id = await saveRun(p.mode, p.mode === 'account' ? p.target : p.query || p.niche, 'x', data);
+      id = await saveRun(
+        user.id,
+        p.mode,
+        p.mode === 'account' ? p.target : p.query || p.niche,
+        'x',
+        data,
+      );
     } else if (b.action === 'import') {
       const data = DatasetSchema.parse(b.data);
       id = await saveRun(
+        user.id,
         z.enum(modes).parse(b.mode || 'account'),
         String(b.target || 'Impor').slice(0, 100),
         'import',
         data,
       );
     } else if (b.action === 'analyze') {
-      const run = await getRun(z.string().parse(b.id));
+      const run = await getRun(user.id, z.string().parse(b.id));
       if (run.source === 'demo')
         throw Error('Data demo sudah memiliki analisis contoh; tidak memakai kredit AI.');
       if (!run.payload.posts.length) throw Error('Tidak ada post untuk dianalisis.');
       if (run.analysis && !b.force) return Response.json({ id: run.id, cached: true });
       const a = await analyze(
+        user.id,
         run,
         z
           .string()
@@ -92,13 +103,10 @@ export async function POST(request: Request) {
           .parse(b.language),
         z.string().max(200).parse(b.niche),
       );
-      await db()
-        .prepare('UPDATE runs SET analysis=? WHERE id=?')
-        .bind(JSON.stringify(a), run.id)
-        .run();
+      await saveAnalysis(user.id, run.id, a);
       id = run.id;
     } else if (b.action === 'draft') {
-      const run = await getRun(z.string().parse(b.id));
+      const run = await getRun(user.id, z.string().parse(b.id));
       const postId = z.string().parse(b.post_id);
       const type = z.enum(['lead', 'connection', 'reply']).parse(b.type);
       const draft = z.string().max(3000).parse(b.draft);
@@ -107,31 +115,19 @@ export async function POST(request: Request) {
       a.candidates = a.candidates.map((c) =>
         c.post_id === postId && c.type === type ? { ...c, draft } : c,
       );
-      await db()
-        .prepare('UPDATE runs SET analysis=? WHERE id=?')
-        .bind(JSON.stringify(AnalysisSchema.parse(a)), run.id)
-        .run();
+      await saveAnalysis(user.id, run.id, AnalysisSchema.parse(a));
       id = run.id;
     } else if (b.action === 'outcome') {
       const p = Outcome.parse(b.data);
-      if (b.id) {
-        await db()
-          .prepare('UPDATE outcomes SET payload=? WHERE id=?')
-          .bind(JSON.stringify(p), z.string().parse(b.id))
-          .run();
-      } else {
-        await db()
-          .prepare('INSERT INTO outcomes(id,created,payload) VALUES(?,?,?)')
-          .bind(crypto.randomUUID(), new Date().toISOString(), JSON.stringify(p))
-          .run();
-      }
+      await saveOutcome(user.id, p, b.id ? z.string().parse(b.id) : undefined);
     } else if (b.action === 'deleteOutcome') {
-      await db().prepare('DELETE FROM outcomes WHERE id=?').bind(z.string().parse(b.id)).run();
+      await deleteOutcome(user.id, z.string().parse(b.id));
     } else if (b.action === 'deleteRun') {
-      await db().prepare('DELETE FROM runs WHERE id=?').bind(z.string().parse(b.id)).run();
+      await deleteRun(user.id, z.string().parse(b.id));
     } else throw Error('Aksi tidak dikenal.');
     return Response.json({ id });
   } catch (e) {
+    if (e instanceof AccessError) return failure(e);
     const msg =
       e instanceof z.ZodError
         ? 'Format data tidak valid: ' +

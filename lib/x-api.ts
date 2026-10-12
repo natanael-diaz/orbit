@@ -1,9 +1,14 @@
 import { secrets, reserve, settle } from './store';
 import { queryFor, type Dataset, type Post, type Mode, type LeadPreset } from './domain';
 const fields = 'created_at,public_metrics,author_id,referenced_tweets,attachments,note_tweet';
-async function xGet(path: string, params: Record<string, string>, ceiling: number) {
+async function xGet(
+  userId: string,
+  path: string,
+  params: Record<string, string>,
+  reservation: number,
+) {
   if (!secrets().x) throw Error('X Bearer Token belum diisi di .env.');
-  const ticket = await reserve('x', ceiling, 'X: ' + path);
+  const ticket = await reserve(userId, 'x', reservation, 'X: ' + path);
   let res: Response;
   try {
     res = await fetch('https://api.x.com/2/' + path + '?' + new URLSearchParams(params), {
@@ -81,9 +86,14 @@ function unpack(r: any, fallback = '') {
     ...(r.includes?.tweets || []).map((p: any) => normalize(p, u, m, '', true)),
   ];
 }
-export async function collectAccount(handle: string, postLimit = 50): Promise<Dataset> {
+export async function collectAccount(
+  userId: string,
+  handle: string,
+  postLimit = 50,
+): Promise<Dataset> {
   if (!/^[A-Za-z0-9_]{1,15}$/.test(handle)) throw Error('Username X tidak valid.');
   const r = await xGet(
+    userId,
     'users/by/username/' + handle,
     { 'user.fields': 'name,username,description,pinned_tweet_id' },
     0.01,
@@ -102,7 +112,7 @@ export async function collectAccount(handle: string, postLimit = 50): Promise<Da
         'tweet.fields': fields,
       };
       if (token) q.pagination_token = token;
-      const p = await xGet('users/' + u.id + '/tweets', q, 0.55);
+      const p = await xGet(userId, 'users/' + u.id + '/tweets', q, Number(q.max_results) * 0.005);
       posts.push(
         ...unpack(p, handle)
           .filter((p) => p.kind === 'original' || p.kind === 'quote')
@@ -119,6 +129,7 @@ export async function collectAccount(handle: string, postLimit = 50): Promise<Da
   }
   try {
     const activity = await xGet(
+      userId,
       'users/' + u.id + '/tweets',
       { max_results: '50', 'tweet.fields': fields },
       0.25,
@@ -140,6 +151,7 @@ export async function collectAccount(handle: string, postLimit = 50): Promise<Da
   if (ids.length)
     try {
       const context = await xGet(
+        userId,
         'tweets',
         {
           ids: ids.join(','),
@@ -173,6 +185,7 @@ export async function collectAccount(handle: string, postLimit = 50): Promise<Da
   };
 }
 export async function collectSearch(
+  userId: string,
   mode: Mode,
   niche: string,
   language: string,
@@ -181,8 +194,10 @@ export async function collectSearch(
   leadPreset?: LeadPreset,
 ): Promise<Dataset> {
   const query = custom.trim() || queryFor(mode, niche, language, leadPreset);
+  if (!query) throw Error('Isi niche / keyword atau query pencarian sebelum mengambil data.');
   if (query.length > 450) throw Error('Query terlalu panjang (maks. 450 karakter).');
   const r = await xGet(
+    userId,
     'tweets/search/recent',
     {
       query,
@@ -191,7 +206,7 @@ export async function collectSearch(
       expansions: 'author_id',
       'user.fields': 'username,description',
     },
-    1.5,
+    postLimit * 0.015,
   );
   return {
     profile: null,

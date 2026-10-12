@@ -17,7 +17,7 @@
     "local": "node scripts/local.mjs",
     "db:local": "wrangler d1 migrations apply DB --local --config wrangler.local.json --persist-to .wrangler/state",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/domain.test.mjs"
+    "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/*.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -1,11 +1,11 @@
 import { categories, type Dataset, type Analysis } from './domain';
 const texts = [
-  'Finished a moonlit starting-soon screen. Soft stars, hand-painted clouds. #VTuber',
-  'Commission slots open: stream overlays from $80. Portfolio in bio.',
-  'Coffee, cats, and one very stubborn animation keyframe today.',
-  'Overlay tip: keep important text inside your safe area so it stays readable on mobile.',
-  'VTubers, what is your dream debut theme? Drop your moodboard!',
-  'Huge congrats to the rigging team on their debut showcase. The expressions are lovely.',
+  'Finished a prototype dashboard for small business inventory. Here is the workflow and what we learned.',
+  'Our inventory consulting packages start at $80. Booking is open for next month.',
+  'Coffee, a long walk, and one stubborn spreadsheet formula today.',
+  'Practical tip: document your process before automating it so the whole team can maintain it.',
+  'Business owners, what is the most time-consuming task in your weekly workflow?',
+  'Huge congrats to the community workshop team. Thanks for sharing practical lessons with everyone.',
 ];
 export function demo() {
   const posts: Dataset['posts'] = Array.from({ length: 50 }, (_, i) => ({
@@ -28,8 +28,8 @@ export function demo() {
   posts.push(
     {
       id: 'demo-lead',
-      text: 'Preparing my November VTuber debut! Looking for a star-themed BRB and starting screen. Budget $120. Any artist recommendations?',
-      author: 'sample_debut',
+      text: 'Preparing our November shop launch. Looking for a consultant to set up inventory tracking. Budget $120. Any provider recommendations?',
+      author: 'sample_buyer',
       created_at: '2026-10-05T12:00:00.000Z',
       kind: 'context',
       url: '',
@@ -39,7 +39,7 @@ export function demo() {
     },
     {
       id: 'demo-reply',
-      text: 'The eye expressions look so expressive! How long did the rig take?',
+      text: 'This workflow looks useful! How did you decide which steps to automate first?',
       author: 'sample_creator',
       created_at: '2026-10-05T13:00:00.000Z',
       kind: 'reply',
@@ -50,8 +50,8 @@ export function demo() {
     },
     {
       id: 'demo-community',
-      text: 'Sharing a Live2D rig showcase. Open to collaborating with overlay artists on debut packages.',
-      author: 'sample_rigger',
+      text: 'Sharing lessons from our operations workshop. Open to collaborating with other professionals on practical community sessions.',
+      author: 'sample_professional',
       created_at: '2026-10-04T12:00:00.000Z',
       kind: 'context',
       url: '',
@@ -61,7 +61,7 @@ export function demo() {
     },
     {
       id: 'demo-repost',
-      text: 'Sharing a fellow creator’s Live2D showcase.',
+      text: 'Sharing a community member’s practical workflow guide.',
       author: 'sample_creator',
       created_at: '2026-10-04T14:00:00.000Z',
       kind: 'repost',
@@ -79,13 +79,13 @@ export function demo() {
   );
   const analysis: Analysis = {
     summary:
-      'Contoh fiktif: creator stream assets dengan perpaduan showcase, obrolan ringan, dan dukungan komunitas.',
-    positioning: 'Stream assets bertema celestial untuk VTuber.',
+      'Contoh fiktif: akun profesional berbagi proyek, edukasi proses bisnis, penawaran jasa, dan kegiatan komunitas.',
+    positioning: 'Pengetahuan dan solusi operasional untuk usaha kecil.',
     brand:
       'Visual yang konsisten dan bahasa hangat; kesimpulan contoh, bukan hasil riset akun nyata.',
     feel: 'Personal — memakai cerita keseharian dan suara orang pertama.',
-    reply_pattern: 'Mengapresiasi karya rigging dan mengajukan pertanyaan spesifik.',
-    repost_pattern: 'Mendukung showcase creator lain.',
+    reply_pattern: 'Mengapresiasi proses kerja dan mengajukan pertanyaan spesifik.',
+    repost_pattern: 'Mendukung berbagi pengetahuan di komunitas.',
     evidence_ids: ['demo-0', 'demo-2', 'demo-reply'],
     posts: posts.slice(0, 50).map((p, i) => ({
       id: p.id,
@@ -98,13 +98,15 @@ export function demo() {
     })),
     topics: [
       {
-        name: 'Persiapan debut',
-        reason: 'Contoh percakapan tentang aset yang diperlukan sebelum debut.',
+        name: 'Persiapan usaha',
+        reason:
+          'Contoh percakapan tentang solusi operasional yang diperlukan sebelum peluncuran usaha.',
         evidence_ids: ['demo-lead'],
       },
       {
-        name: 'Kolaborasi creator',
-        reason: 'Contoh peluang kolaborasi antara rigger dan overlay artist.',
+        name: 'Kolaborasi komunitas',
+        reason:
+          'Contoh keterbukaan profesional untuk berbagi pengetahuan dalam kegiatan komunitas.',
         evidence_ids: ['demo-community'],
       },
     ],
@@ -114,23 +116,23 @@ export function demo() {
         type: 'lead',
         fit: 'high',
         reason:
-          'Contoh bukti eksplisit: mencari BRB dan starting screen; jadwal dan budget disebutkan.',
-        need: 'BRB + starting screen',
+          'Contoh bukti eksplisit: mencari konsultan inventory; jadwal dan budget disebutkan.',
+        need: 'Konsultan untuk inventory tracking',
         timing: 'November',
         budget: '$120',
         draft:
-          'A star-themed debut sounds lovely! Do you already have a color palette in mind for the screens?',
+          'What does your current inventory workflow look like, and which part needs the most help before launch?',
       },
       {
         post_id: 'demo-community',
         type: 'connection',
         fit: 'high',
-        reason: 'Rigger menyebut keterbukaan berkolaborasi dengan overlay artist.',
+        reason: 'Profesional menyebut keterbukaan berkolaborasi untuk kegiatan komunitas.',
         need: null,
         timing: null,
         budget: null,
         draft:
-          'The expressions have so much personality! What kind of debut themes do you enjoy working on most?',
+          'Those practical sessions sound useful. Which operations topics do participants ask about most?',
       },
       {
         post_id: 'demo-4',
@@ -141,7 +143,7 @@ export function demo() {
         timing: null,
         budget: null,
         draft:
-          'A little moonlit library would be such a cozy debut setting. Do you lean more cozy or high-energy for yours?',
+          'Tracking updates across spreadsheets can take a surprising amount of time. Which task tends to slow your week down most?',
       },
     ],
   };
@@ -150,8 +152,8 @@ export function demo() {
       post_limit: 50,
       profile: {
         username: 'sample_creator',
-        name: 'Sample Creator • fiktif',
-        bio: 'Stream assets artist · celestial & cozy visuals',
+        name: 'Sample Professional • fiktif',
+        bio: 'Proses bisnis, proyek, dan berbagi pengetahuan komunitas',
         pinned_id: 'demo-0',
       },
       posts,

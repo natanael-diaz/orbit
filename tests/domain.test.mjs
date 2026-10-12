@@ -63,7 +63,7 @@ test('lead discovery queries retain niche and language', () => {
   assert.match(q, /VTuber/);
   assert.match(q, /lang:en/);
   assert.match(q, /looking for/);
-  assert.match(q, /stream assets/);
+  assert.doesNotMatch(q, /stream assets|looking for artist/);
   assert.match(q, /-is:retweet/);
 });
 

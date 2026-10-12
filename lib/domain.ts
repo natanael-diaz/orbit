@@ -9,9 +9,17 @@ export const categories = [
 ] as const;
 export const modes = ['account', 'topics', 'replies', 'leads', 'connections'] as const;
 export const leadPresets = {
+  general: {
+    label: 'General / semua bidang',
+    intent:
+      'Prospective buyers in the supplied research context explicitly seeking a product, service, solution, supplier, or professional recommendation. Do not infer a commercial need from interest, profession, or status alone.',
+    query:
+      '("looking for" OR "recommendations" OR "recommend a" OR "need a" OR "need an" OR "seeking" OR "mencari" OR "butuh" OR "rekomendasi")',
+  },
   vtuber: {
     label: 'VTuber / stream assets',
-    intent: 'VTuber and streamer buyers seeking emotes, overlays, stream assets, model art, logos, or artist recommendations.',
+    intent:
+      'VTuber and streamer buyers seeking emotes, overlays, stream assets, model art, logos, or artist recommendations.',
     query:
       '("looking for artist" OR "looking for an artist" OR "need an artist" OR "looking for emotes" OR "need emotes" OR "looking for an overlay" OR "need overlay" OR "need stream assets" OR "artist recommendations" OR "recommend an artist")',
   },
@@ -44,16 +52,16 @@ export const leadPresets = {
       '("looking for artist" OR "need an artist" OR "cover art" OR "podcast logo" OR "logo designer" OR "thumbnail artist" OR "banner artist" OR "brand designer" OR "designer recommendations")',
   },
   custom: {
-    label: 'Custom / broad art buyer',
+    label: 'Custom / niche pilihanmu',
     intent:
-      'Buyers in the supplied niche seeking relevant art, design, creative assets, commissions, or recommendations.',
+      'Prospective buyers explicitly seeking relevant products, services, solutions, or suppliers in the supplied niche or custom query. Require explicit sourcing evidence, not generic discussion or seller advertising.',
     query:
-      '("looking for artist" OR "looking for an artist" OR "need an artist" OR "artist recommendations" OR "recommend an artist" OR "looking for designer" OR "need a designer" OR "commissioning")',
+      '("looking for" OR "recommendations" OR "need a" OR "need an" OR "seeking" OR "mencari" OR "butuh" OR "rekomendasi")',
   },
 } as const;
 export type LeadPreset = keyof typeof leadPresets;
 export function leadPresetFor(value?: string): LeadPreset {
-  return value && value in leadPresets ? (value as LeadPreset) : 'vtuber';
+  return value && Object.hasOwn(leadPresets, value) ? (value as LeadPreset) : 'general';
 }
 export const PostSchema = z.object({
   id: z.string().min(1).max(100),
@@ -167,16 +175,17 @@ export function stats(posts: Post[], limit = 50) {
 }
 export function queryFor(mode: Mode, niche: string, language: string, leadPreset?: LeadPreset) {
   const lang = /^[a-z]{2}$/.test(language) ? ` lang:${language}` : '';
-  const n = niche.trim() || 'VTuber';
+  const n = niche.trim();
+  if (!n) return '';
   const preset = leadPresets[leadPresetFor(leadPreset)];
   const additions = {
     account: '',
     topics: '',
-    replies: ' ("debut" OR "VTuber" OR "stream")',
+    replies: '',
     leads: ` ${preset.query}`,
-    connections: ' (artist OR rigger OR designer OR musician)',
+    connections: '',
   };
-  return `${n}${additions[mode]}${lang} -is:retweet`;
+  return `(${n})${additions[mode]}${lang} -is:retweet`;
 }
 export function sourceUrl(p: Post) {
   return /^https:\/\/(x\.com|twitter\.com)\/[A-Za-z0-9_]+\/status\/\d+$/.test(p.url) ? p.url : '';

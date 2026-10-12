@@ -8,6 +8,13 @@
       "when": 1791259499605,
       "tag": "0000_misty_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791778117664,
+      "tag": "0001_known_northstar",
+      "breakpoints": true
     }
   ]
 }
