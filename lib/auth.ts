@@ -11,7 +11,7 @@ export function sessionToken(request: Request) {
     ?.slice(COOKIE.length + 1);
 }
 export const currentUser = (request: Request) => requireIdentity(db(), sessionToken(request));
-export const setupToken = () => env.ORBIT_SETUP_TOKEN || '';
+export const setupToken = () => (env.ORBIT_SETUP_TOKEN || '').trim();
 export function sessionCookie(request: Request, token: string, clear = false) {
   return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${clear ? 0 : SESSION_SECONDS}${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
 }

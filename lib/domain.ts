@@ -98,41 +98,47 @@ export const DatasetSchema = z.object({
 export type Dataset = z.infer<typeof DatasetSchema>;
 export type Mode = (typeof modes)[number];
 export const AnalysisSchema = z.object({
-  summary: z.string(),
-  positioning: z.string(),
-  brand: z.string(),
-  feel: z.string(),
-  reply_pattern: z.string(),
-  repost_pattern: z.string(),
-  evidence_ids: z.array(z.string()),
-  posts: z.array(
-    z.object({
-      id: z.string(),
-      category: z.enum(categories),
-      tags: z.array(z.string()),
-      tone: z.string(),
-      reason: z.string(),
-    }),
-  ),
-  topics: z.array(
-    z.object({
-      name: z.string(),
-      reason: z.string(),
-      evidence_ids: z.array(z.string()),
-    }),
-  ),
-  candidates: z.array(
-    z.object({
-      post_id: z.string(),
-      type: z.enum(['lead', 'connection', 'reply']),
-      fit: z.enum(['high', 'medium', 'low']),
-      reason: z.string(),
-      need: z.string().nullable(),
-      timing: z.string().nullable(),
-      budget: z.string().nullable(),
-      draft: z.string(),
-    }),
-  ),
+  summary: z.string().catch(''),
+  positioning: z.string().catch(''),
+  brand: z.string().catch(''),
+  feel: z.string().catch(''),
+  reply_pattern: z.string().catch(''),
+  repost_pattern: z.string().catch(''),
+  evidence_ids: z.array(z.string()).catch([]),
+  posts: z
+    .array(
+      z.object({
+        id: z.string(),
+        category: z.enum(categories).catch('Engagement' as const),
+        tags: z.array(z.string()).catch([]),
+        tone: z.string().catch(''),
+        reason: z.string().catch(''),
+      }),
+    )
+    .catch([]),
+  topics: z
+    .array(
+      z.object({
+        name: z.string().catch(''),
+        reason: z.string().catch(''),
+        evidence_ids: z.array(z.string()).catch([]),
+      }),
+    )
+    .catch([]),
+  candidates: z
+    .array(
+      z.object({
+        post_id: z.string(),
+        type: z.enum(['lead', 'connection', 'reply']).catch('reply' as const),
+        fit: z.enum(['high', 'medium', 'low']).catch('low' as const),
+        reason: z.string().catch(''),
+        need: z.string().nullable().catch(null),
+        timing: z.string().nullable().catch(null),
+        budget: z.string().nullable().catch(null),
+        draft: z.string().catch(''),
+      }),
+    )
+    .catch([]),
 });
 export type Analysis = z.infer<typeof AnalysisSchema>;
 export type Run = {

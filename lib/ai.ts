@@ -1,9 +1,9 @@
 import { AnalysisSchema, categories, type Analysis, type Run } from './domain';
-import { reserve, settle, secrets } from './store';
+import { reserve, settle, secrets, aiEndpoint, aiModel } from './store';
 import { researchInstructions } from './research-instructions';
-const str = { type: 'string' },
-  strs = { type: 'array', items: str },
-  nullable = { type: ['string', 'null'] };
+const str = { type: 'string', default: '' },
+  strs = { type: 'array', items: str, default: [] },
+  nullable = { type: ['string', 'null'], default: null };
 const obj = (properties: Record<string, unknown>) => ({
   type: 'object',
   properties,
@@ -53,6 +53,7 @@ export async function analyze(
   niche: string,
 ): Promise<Analysis> {
   if (!secrets().ai) throw Error('OpenAI API key belum diisi di .env.');
+  const modelName = aiModel();
   const payload = JSON.stringify({
     mode: run.mode,
     niche,
@@ -63,7 +64,7 @@ export async function analyze(
   if (payload.length > 160000)
     throw Error('Data terlalu panjang untuk satu analisis. Kurangi jumlah/panjang post.');
   const body = {
-    model: 'gpt-5.4-mini',
+    model: modelName,
     store: false,
     reasoning: { effort: 'none' },
     instructions: researchInstructions(
@@ -80,10 +81,10 @@ export async function analyze(
   const ceiling =
     ((new TextEncoder().encode(JSON.stringify(body)).length + 2000) * 0.75) / 1e6 +
     (10000 * 4.5) / 1e6;
-  const ticket = await reserve(userId, 'ai', ceiling, 'GPT-5.4 mini analysis');
+  const ticket = await reserve(userId, 'ai', ceiling, modelName + ' analysis');
   let res: Response;
   try {
-    res = await fetch('https://api.openai.com/v1/responses', {
+    res = await fetch(aiEndpoint(), {
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + secrets().ai,

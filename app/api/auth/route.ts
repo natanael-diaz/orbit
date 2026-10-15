@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     let result;
     if (input.action === 'setup') {
       const configured = setupToken();
-      const provided = z.string().max(256).parse(input.setupToken);
+      const provided = z.string().trim().min(1).max(256).parse(input.setupToken);
       if (configured.length < 32 || !equal(await digest(provided), await digest(configured)))
         throw new AccessError('Setup token tidak valid atau belum dikonfigurasi.', 403);
       result = await setupAdmin(db(), UserInput.parse({ ...input, role: 'admin' }));
