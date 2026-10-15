@@ -106,7 +106,25 @@ export async function analyze(
       `OpenAI HTTP ${res.status}.${providerMessage ? ` ${String(providerMessage).slice(0, 800)}` : ' Periksa key, akses model, saldo atau rate limit.'}`,
     );
   }
-  const result = (await res.json()) as any;
+  const text = await res.text();
+  // Some providers stream Responses API as SSE even on non-streaming requests.
+  // Parse the last data: line if present; otherwise treat raw JSON.
+  let result: any;
+  if (text.startsWith('event:')) {
+    const dataLines = text
+      .split('\n')
+      .filter((l) => l.startsWith('data: '))
+      .map((l) => l.slice(6));
+    const last = dataLines[dataLines.length - 1];
+    if (last) result = JSON.parse(last);
+    else throw Error('Provider mengembalikan SSE tanpa data. Periksa endpoint/model.');
+  } else {
+    result = JSON.parse(text);
+  }
+  if (result.error) {
+    await settle(ticket, 0);
+    throw Error(`OpenAI error: ${String(result.error.message || result.error.type || result.error).slice(0, 800)}`);
+  }
   if (result.usage) {
     await settle(
       ticket,
