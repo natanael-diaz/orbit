@@ -122,10 +122,13 @@ export async function analyze(
   }
 
   const text = await res.text();
+  // Some providers append SSE artifacts (e.g. 'data: [DONE]') after a JSON response
+  // Strip everything after the last '}' before parsing
+  const cleanText = text.lastIndexOf('}') >= 0 ? text.slice(0, text.lastIndexOf('}') + 1) : text;
   // Some providers wrap in SSE even on non-streaming requests.
   let result: any;
-  if (text.startsWith('event:')) {
-    const dataLines = text
+  if (cleanText.startsWith('event:')) {
+    const dataLines = cleanText
       .split('\n')
       .filter((l) => l.startsWith('data: '))
       .map((l) => l.slice(6));
@@ -133,7 +136,7 @@ export async function analyze(
     if (last && last !== '[DONE]') result = JSON.parse(last);
     else throw Error('Provider mengembalikan SSE tanpa data. Periksa endpoint/model.');
   } else {
-    result = JSON.parse(text);
+    result = JSON.parse(cleanText);
   }
 
   if (result.error) {
@@ -165,9 +168,56 @@ export async function analyze(
   if (!output)
     throw Error('Analisis AI belum lengkap. Pemakaian yang terjadi tetap dicatat.');
 
-  // Clean markdown code fences if the model wrapped JSON in them
-  const cleaned = output.replace(/^```(?:json)?\s*|```\s*$/g, '').trim();
-  const parsed = AnalysisSchema.parse(JSON.parse(cleaned));
+  // Extract outermost JSON object by tracking brace depth
+  // Handles } inside string values (e.g. draft text) and trailing SSE artifacts
+  const trimmed = output.trim();
+  const firstBrace = trimmed.indexOf('{');
+  let depth = 0;
+  let lastBrace = -1;
+  for (let i = firstBrace; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === '{') {
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        lastBrace = i;
+        break;
+      }
+    } else if (ch === '"' && (i === 0 || trimmed[i - 1] !== '\\')) {
+      // Skip string contents (escaped quotes handled)
+      i++;
+      while (i < trimmed.length) {
+        if (trimmed[i] === '\\') {
+          i++; // skip escaped char
+        } else if (trimmed[i] === '"') {
+          break; // end of string
+        }
+        i++;
+      }
+    }
+  }
+  let jsonStr: string;
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    jsonStr = trimmed.slice(firstBrace, lastBrace + 1);
+  } else {
+    // Fallback: try to strip markdown fences
+    jsonStr = trimmed.replace(/^```(?:json)?\s*|```\s*$/g, '').trim();
+  }
+
+  // Log last 200 chars of raw output for debugging
+  console.log('[ORBIT-AI] raw output end:', output.slice(-200));
+  console.log('[ORBIT-AI] jsonStr end:', jsonStr.slice(-200));
+  console.log('[ORBIT-AI] jsonStr length:', jsonStr.length);
+
+  let parsed: Analysis;
+  try {
+    parsed = AnalysisSchema.parse(JSON.parse(jsonStr));
+  } catch (e) {
+    console.error('[ORBIT-AI] parse error:', String(e).slice(0, 500));
+    console.error('[ORBIT-AI] first 1000:', output.slice(0, 1000));
+    throw e;
+  }
 
   const ids = new Set(run.payload.posts.map((p) => p.id));
   const cited = [
