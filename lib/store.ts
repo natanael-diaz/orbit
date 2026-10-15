@@ -15,6 +15,9 @@ export function db() {
   return env.DB;
 }
 export const secrets = () => ({ x: env.X_BEARER_TOKEN || '', ai: env.OPENAI_API_KEY || '' });
+export const aiModel = () => env.OPENAI_MODEL || 'gpt-5.4-mini';
+export const aiEndpoint = () =>
+  (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '') + '/chat/completions';
 export async function state(userId: string) {
   const [research, credit] = await Promise.all([
     researchState(db(), userId),

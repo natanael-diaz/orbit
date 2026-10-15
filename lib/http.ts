@@ -1,12 +1,18 @@
 import { z } from 'zod';
+import { env } from 'cloudflare:workers';
 import { AccessError } from './accounts';
 
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 }
 export function checkOrigin(request: Request) {
+  const origin = request.headers.get('origin');
+  const allowed = (env.ORBIT_PUBLIC_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
   if (
-    request.headers.get('origin') !== new URL(request.url).origin ||
+    (origin !== new URL(request.url).origin && !allowed.includes(origin || '')) ||
     request.headers.get('sec-fetch-site') === 'cross-site'
   )
     throw new AccessError('Origin ditolak.', 403);

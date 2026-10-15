@@ -317,17 +317,18 @@ test('API integration: setup, roles, user isolation, paid gating before fetch, c
     };
     globalThis.fetch = async (url, options) => {
       calls++;
-      assert.equal(url, 'https://api.openai.com/v1/responses');
+      assert.equal(url, 'https://api.openai.com/v1/chat/completions');
       const body = JSON.parse(options.body);
-      assert.equal(body.store, false);
-      assert.match(body.instructions, /general-purpose/);
-      assert.match(body.instructions, /Active lead preset: General/);
-      assert.equal(JSON.parse(body.input).niche, 'SaaS');
-      assert.equal(JSON.parse(body.input).posts[0].media, undefined);
+      assert.equal(body.messages.length, 2);
+      assert.equal(body.messages[0].role, 'system');
+      assert.match(body.messages[0].content, /general-purpose/);
+      assert.match(body.messages[0].content, /Active lead preset: General/);
+      assert.equal(body.messages[1].role, 'user');
+      assert.ok(body.messages[1].content.includes('SaaS'));
+      assert.ok(!body.messages[1].content.includes('media'));
       return Response.json({
-        status: 'completed',
-        usage: { input_tokens: 100, output_tokens: 10 },
-        output: [{ content: [{ type: 'output_text', text: JSON.stringify(analysis) }] }],
+        choices: [{ message: { content: JSON.stringify(analysis) }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 100, completion_tokens: 10 },
       });
     };
     const analyzed = await desk.POST(

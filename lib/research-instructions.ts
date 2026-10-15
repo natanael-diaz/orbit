@@ -8,5 +8,5 @@ Include at most 12 candidates total across lead/connection/reply, each with sour
 
 export function researchInstructions(mode: Mode, sampleLimit = 50, preset?: string) {
   const selected = leadPresets[leadPresetFor(preset)];
-  return `${researchPolicy}\nAccount original/quote sample limit: ${sampleLimit}. Active lead preset: ${mode === 'leads' ? selected.label : leadPresets.general.label}. ${mode === 'leads' ? selected.intent : leadPresets.general.intent}`;
+  return `${researchPolicy}\nAccount original/quote sample limit: ${sampleLimit}. Active lead preset: ${mode === 'leads' ? selected.label : leadPresets.general.label}. ${mode === 'leads' ? selected.intent : leadPresets.general.intent}\nReturn valid JSON with ALL top-level fields, no exceptions: summary, positioning, brand, feel, reply_pattern, repost_pattern, evidence_ids, posts, topics, candidates. Every mode returns every field; use an empty string ("") or empty array ([]) when a section has no data. Never omit a field, never use null for a string field.`;
 }
